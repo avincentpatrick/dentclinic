@@ -69,7 +69,15 @@ Hard-block overlaps everywhere in v1 (overlap-override machinery CUT). Cancel �
 
 **Slot holds: DEFERRED from v1** (near-zero contention at clinic scale; EXCLUDE + friendly "just taken — pick another" toast suffices). If added later: no volatile predicate in the EXCLUDE (critique caught `WHERE expires_at > now()` is invalid SQL — cron-delete expired rows instead).
 
-**Migration order** (numbering drifted +1 from the original plan: 0003 was consumed by an audit-trigger hotfix, and 0004 became user_preferences + the branding view in Phase 1.1 — lookups/feedback move to 0005, and everything after shifts accordingly): 0001 extensions (btree_gist, pgcrypto, pg_cron, pg_net) + private schema + helpers → 0002 identity + signup trigger + Custom Access Token Hook → 0003 lookups/settings/branding view/feedback → 0004 scheduling + EXCLUDE constraints + action_tokens → 0005 clinical → 0006 recall/waitlist → 0007 notifications/announcements → 0008 billing → 0009 audit → 0010 RLS → 0011 functions (get_available_slots, book_appointment, cancel, reschedule, accept_or_refer, recalc_recalls, enqueue_due_work) → 0012 cron → 0013 seeds.
+**Migration order** — the original numbering is superseded; the file names in `supabase/migrations/` are the truth. Actual, as applied:
+
+`0001` extensions (btree_gist, pgcrypto, citext) + private schema + helpers → `0002` identity + signup trigger + Custom Access Token Hook + audit_log → `0003` audit_row() hotfix → `0004` user_preferences + clinic_branding view (1.1) → `0005` providers + patients + registry RPCs (2.1) → `0006` patients dob timezone hotfix → `0007` claim_or_create_patient citext hotfix → **next: `0008`** lookups/appointment_types/operatories, `0009` settings RPCs + branding storage, `0010` feedback.
+
+Then, unchanged in content but renumbered from here: scheduling + EXCLUDE constraints + action_tokens → clinical → recall/waitlist → notifications/announcements → billing → RLS top-ups → functions (get_available_slots, book_appointment, cancel, reschedule, accept_or_refer, recalc_recalls, enqueue_due_work) → cron → seeds.
+
+RLS and audit are **not** deferred to late migrations as originally drafted: every table ships with its policies, grants and triggers in the same migration that creates it, because a table that exists for even one migration without RLS is a table someone can read.
+
+Phase 2 is built patients-first — 2.1 has no email dependency, so it proceeds while the Brevo signup is outstanding — which is why patients precede lookups here.
 
 **Seeds:** appointment_types w/ research durations (Adult Recall+Prophy 50m, Child Prophy 30m, New Patient Exam 40m, Simple Filling 40m, Crown Prep 90m, Root Canal Molar 90m, Simple Extraction 30m, Emergency 30m + post-buffer 10m, Consultation 20m — all clinic-editable), recall_types (Prophy 180d default, Perio 90d), lookups (cancel reasons, payment methods cash/GCash/card, starter services/fees), 2 operatories, settings (lead_time 120min, horizon 60d, cancel_window 24h). First superadmin seeded by `SETUP_SUPERADMIN_EMAIL` env match, flag self-disables.
 

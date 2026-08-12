@@ -24,6 +24,16 @@ The system is 17 modules (docs `01`–`17` in this folder). The full approved bl
 
 - Every domain table: `id uuid pk default gen_random_uuid()`, `created_at/updated_at timestamptz` (UTC), `deleted_at/deleted_by` soft delete. RLS always filters `deleted_at IS NULL`; unique constraints are partial (`WHERE deleted_at IS NULL`).
 - **Soft-delete exemption — config satellites.** A table that is 1:1 with an identity row, has no dependents, offers no archive affordance, and whose "reset" is semantically an UPDATE is exempt from `deleted_at/deleted_by`. It still gets **no DELETE grant**. So far: `user_preferences` (0004) — reasoning in [02-clinic-settings.md](02-clinic-settings.md). Domain, clinical, and financial tables are never exempt.
+- **Archive-view exemption (since 2.1).** "RLS always filters `deleted_at IS NULL`" holds for
+  every patient-facing policy without exception. Staff-side roles additionally get a second,
+  explicitly named policy (`"clinic reads archived patients (Archive view)"`) permitting
+  archived rows, because Archive/Undo cannot exist if archived rows are unreadable. Permissive
+  policies OR together, so this is equivalent to one unfiltered policy — the split exists so
+  the exception is legible in `\d` output rather than hidden inside a missing predicate. Any
+  new table with an Archive affordance follows the same two-policy shape.
+- **`security definer` + `set search_path = ''` means schema-qualify TYPES too**, not just
+  tables and functions. An unqualified `::citext` parses and deploys, then fails at run time
+  (0007). Prefer letting an implicit cast do the work.
 - **Audit exemption.** Write-audit triggers go on domain/clinical/PHI tables. Personal display preferences are not audited: `private.audit_log` is append-only with 6+ year retention and exempt from purge, so auditing a theme toggle adds permanent rows with no investigative value. `settings_change` is for clinic-wide settings that affect other people.
 - Schemas: `public` = domain; `private` = `audit_log`, `action_tokens`, `settings` (never exposed via PostgREST).
 - Enums: `app_role` (patient/doctor/staff/superadmin), `appt_status` (scheduled/complete/broken/unscheduled/planned/asap), `visit_status` (none/arrived/in_chair/done), `confirm_status`, `acceptance_status` (pending/accepted/referred).

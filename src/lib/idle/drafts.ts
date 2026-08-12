@@ -5,10 +5,15 @@ import { useEffect, useRef } from "react";
 /**
  * Draft-save seam for IdleTimeoutGuard.
  *
- * Phase 1 has ZERO registrants — there are no forms yet. Only the registry
- * ships, so that Phase 2's MedicalHistoryForm and Phase 6's SoapNoteEditor get
- * idle-timeout protection by calling useDraftSaver(), rather than someone
- * bolting draft handling onto the guard later.
+ * STILL ZERO REGISTRANTS as of Phase 2, deliberately. Phase 2's forms are ≤10
+ * fields on one screen, `useActionState` echoes submitted values back across the
+ * server round trip, `/register` posts each step so Back is loss-free, and
+ * IdleTimeoutGuard warns 60s ahead with "Stay signed in". Draft persistence
+ * would be machinery with nothing to protect.
+ *
+ * The first real registrant is Phase 6.1's MedicalHistoryForm (multi-step,
+ * autosave, PLAN.md:152), followed by 6.2's SoapNoteEditor. Only the registry
+ * ships now so that draft handling is never bolted onto the guard later.
  */
 
 export type DraftSaver = () => void | Promise<void>;

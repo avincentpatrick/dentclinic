@@ -8,9 +8,12 @@ export const metadata: Metadata = {
 };
 
 /**
- * Canonical appearance screen. Public by design (see PUBLIC_PATHS in
- * middleware): it holds no PHI, and a guest partway through booking must be
- * able to enlarge the text without an account.
+ * Canonical appearance screen. Public by design (`roles: "public"` in
+ * ROUTE_RULES, src/lib/roles.ts): it holds no PHI, and a guest partway through
+ * booking must be able to enlarge the text without an account.
+ *
+ * Longest-prefix-wins is what lets this sit under a future authenticated
+ * `/settings` without inheriting its gate.
  */
 export default async function AppearanceSettingsPage() {
   const supabase = await createClient();

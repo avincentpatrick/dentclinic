@@ -39,9 +39,11 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   const [jar, hdrs, branding] = await Promise.all([cookies(), headers(), getBranding()]);
 
   const pathname = hdrs.get("x-pathname") ?? "/";
+  // Presentation only — middleware sets it, nothing authorizes on it.
+  const role = hdrs.get("x-role");
   const theme = parseTheme(jar.get(THEME_COOKIE)?.value);
   const fontPref = parseFontPref(jar.get(FONT_COOKIE)?.value);
-  const fontStep = resolveFontStep(fontPref, pathname);
+  const fontStep = resolveFontStep(fontPref, pathname, role);
 
   return (
     <html
@@ -57,7 +59,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased${theme === "dark" ? " dark" : ""}`}
     >
       <body className="flex min-h-full flex-col">
-        <AppearanceProvider initialTheme={theme} initialFontPref={fontPref}>
+        <AppearanceProvider initialTheme={theme} initialFontPref={fontPref} role={role}>
           {children}
         </AppearanceProvider>
       </body>

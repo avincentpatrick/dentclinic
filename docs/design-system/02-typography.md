@@ -56,10 +56,21 @@ for every role — a doctor who picks `large` keeps it on `/today`; a patient wh
 `auto` has to exist as a distinct value rather than seeding the cookie on first visit:
 a patient whose first hit is the landing page would otherwise be pinned to 100% forever.
 
-**Resolution is pathname-based, not role-based**, and that is load-bearing — `/book` and
-`/a/[token]` are patient-facing with **no session at all**, so a role check would serve
-guest booking at 100%. `PATIENT_SURFACES` is the list; middleware forwards the pathname
-to the root layout as `x-pathname` because a Server Component cannot see it.
+**Resolution is pathname-based**, and that is load-bearing — `/book` and `/a/[token]` are
+patient-facing with **no session at all**, so a role check would serve guest booking at
+100%. `PATIENT_SURFACES` is that list; middleware forwards the pathname to the root layout
+as `x-pathname` because a Server Component cannot see it.
+
+The one exception is `SHARED_SURFACES` (`/profile`, `/feedback`) — the `(shared)` route
+group, which every signed-in role reaches. `/profile` is a patient surface *for a patient*
+and an ordinary page for a superadmin, so the pathname alone cannot decide. These always
+have a session, so middleware also forwards `x-role`, and the step is `comfortable` only
+for patients. Until Phase 2, `/profile` sat in `PATIENT_SURFACES` and silently enlarged
+text for doctors, staff and superadmins on `auto`.
+
+`x-role` is **presentation input only**. It is built from `request.headers`, which a client
+controls, so middleware always sets-or-deletes it — and nothing may ever authorize on it.
+Authorization is `isAllowed()` in middleware and RLS in the database.
 
 Because the root layout does not re-render on client-side navigation, `AppearanceProvider`
 re-derives the step from `usePathname()` and updates the attribute. The server gets first

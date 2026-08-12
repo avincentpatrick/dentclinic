@@ -42,10 +42,18 @@ function applyFontStep(step: FontStep) {
 export function AppearanceProvider({
   initialTheme,
   initialFontPref,
+  role,
   children,
 }: {
   initialTheme: Theme;
   initialFontPref: FontPref;
+  /**
+   * Presentation only, and it must match what the server used or client
+   * navigation to a shared surface (`/profile`) would resolve a different font
+   * step than first paint. A role never changes without a new token and a fresh
+   * document, so passing it once is sound.
+   */
+  role?: string | null;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -53,7 +61,7 @@ export function AppearanceProvider({
   const [fontPref, setFontPrefState] = useState<FontPref>(initialFontPref);
   const [systemDark, setSystemDark] = useState(false);
 
-  const fontStep = resolveFontStep(fontPref, pathname);
+  const fontStep = resolveFontStep(fontPref, pathname, role);
 
   // The root layout does not re-render on client navigation, so a server-set
   // data-font-size would go stale when moving between patient and staff

@@ -54,7 +54,9 @@ needs `revalidateTag`.
 ## Screens (routes)
 - `/settings/appearance` — theme + text size ([page](../../src/app/settings/appearance/page.tsx)).
   **Public by design**: no PHI, and a guest partway through booking must be able to
-  enlarge the text. Listed in `PUBLIC_PATHS` in [middleware](../../src/middleware.ts).
+  enlarge the text. Carries `roles: "public"` in `ROUTE_RULES`
+  ([src/lib/roles.ts](../../src/lib/roles.ts)); longest-prefix-wins keeps it public under a
+  future authenticated `/settings`.
 - `AppearanceMenu` popover — mounted in `RoleHeader`, the landing page, and `/login`.
 - Phase 2.2: `/admin/branding`, `/admin/lookups`, `/admin/email`.
 

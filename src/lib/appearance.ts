@@ -77,10 +77,27 @@ export function parseFontPref(value: unknown): FontPref {
  * `/a/[token]` are patient-facing with no session at all, so a role check would
  * serve guest booking at 100%.
  */
-export const PATIENT_SURFACES = ["/home", "/appointments", "/records", "/profile", "/book", "/a/"] as const;
+export const PATIENT_SURFACES = ["/home", "/appointments", "/records", "/book", "/a/"] as const;
 
 export function isPatientSurface(pathname: string): boolean {
   return PATIENT_SURFACES.some((p) => pathname === p || pathname.startsWith(p));
+}
+
+/**
+ * Surfaces every signed-in role shares (the `(shared)` route group). These are
+ * patient-facing ONLY for patients: `/profile` is a patient surface for a
+ * patient and an ordinary admin page for a superadmin, so it is the one case
+ * where the pathname alone cannot decide. Unlike PATIENT_SURFACES these always
+ * have a session, so a role is always available to ask about — which is exactly
+ * why the rule above can stay role-free.
+ *
+ * Before Phase 2, `/profile` sat in PATIENT_SURFACES and silently enlarged text
+ * for doctors, staff and superadmins on `auto`.
+ */
+export const SHARED_SURFACES = ["/profile", "/feedback"] as const;
+
+export function isSharedSurface(pathname: string): boolean {
+  return SHARED_SURFACES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 
 /**
@@ -88,8 +105,14 @@ export function isPatientSurface(pathname: string): boolean {
  * `large` keeps it on /today, a patient who picks `standard` keeps it on /home.
  * Route defaults only fill an unset preference, which is why `auto` has to
  * exist as a distinct value rather than seeding the cookie on first visit.
+ *
+ * `role` is presentation input only. It arrives from middleware via a request
+ * header and must NEVER be used for authorization — see the note in middleware.
+ * Omitted or unknown, it simply means "not a patient", i.e. the 100% default.
  */
-export function resolveFontStep(pref: FontPref, pathname: string): FontStep {
+export function resolveFontStep(pref: FontPref, pathname: string, role?: string | null): FontStep {
   if (pref !== "auto") return pref;
-  return isPatientSurface(pathname) ? "comfortable" : "standard";
+  if (isPatientSurface(pathname)) return "comfortable";
+  if (role === "patient" && isSharedSurface(pathname)) return "comfortable";
+  return "standard";
 }

@@ -30,15 +30,22 @@ npm run check              # lint + typecheck + contrast + docs sync
 npm run verify             # everything, exactly as CI runs it
 ```
 
-**GitHub Actions is currently disabled by the account's billing state**, so CI will not run
-these until that is resolved. That is precisely why every gate is a local npm script —
-`npm run verify` reproduces CI offline.
+CI runs all of these on every push and PR (the account's billing block was cleared before
+Phase 2). Every gate is nonetheless a local npm script, and `npm run verify` reproduces CI
+offline — keep it that way: a gate that only exists in a workflow file cannot be run before
+you commit, and the offline mirror is what carried the project through the billing outage.
 
 ## The audit bypass — and why it cannot reach production
 
 `/design-system` is superadmin-gated, but axe needs to reach it without a session.
 Authenticating Playwright against live Supabase would need real credentials and hand-forged
-chunked `sb-*-auth-token` cookies — fragile, slow, and impossible while Actions is billing-blocked.
+chunked `sb-*-auth-token` cookies — fragile and slow.
+
+Since Phase 2 the gallery also carries a `layouts` group: whole-page compositions built from
+the same hard-coded fixtures, which is how admin and staff screens get axe coverage without
+a second bypass route. A real auth fixture (service-role `generateLink` → `storageState`,
+skipped unless its env var is set so `npm run verify` stays offline) is the tracked next
+step, not a replacement for either.
 
 Instead, `A11Y_AUDIT=1` bypasses the gate. Four independent reasons it is safe:
 

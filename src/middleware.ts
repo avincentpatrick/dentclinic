@@ -139,6 +139,21 @@ export async function middleware(request: NextRequest) {
   const headers = new Headers(request.headers);
   headers.set("x-pathname", pathname);
 
+  // PRESENTATION ONLY — never an authorization input.
+  //
+  // `/profile` is a patient surface for a patient and an ordinary page for
+  // everyone else, and only the root layout can set data-font-size (it owns
+  // <html>), so it needs the role. It cannot read the claim itself without
+  // putting an auth round trip on every request; middleware already has it.
+  //
+  // These headers are built from `request.headers`, which a client controls, so
+  // this must always set-or-delete: leaving a forged `x-role` in place would let
+  // a visitor pick their own font step. Harmless in itself — which is precisely
+  // why nothing may ever authorize on it. Authorization is isAllowed() above and
+  // RLS in the database.
+  if (role) headers.set("x-role", role);
+  else headers.delete("x-role");
+
   return finish(NextResponse.next({ request: { headers } }));
 }
 

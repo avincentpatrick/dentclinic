@@ -7,7 +7,7 @@ Full blueprint: `docs/PLAN.md` (canonical copy of the approved plan). Progress: 
 
 - Next.js App Router + TypeScript + Tailwind v4 + shadcn/ui, deployed to **Cloudflare Workers** via `@opennextjs/cloudflare` (Vercel Hobby forbids commercial use — do not deploy there).
 - Supabase (Postgres 17, Auth email OTP/magic link, Storage) — **separate dedicated account** (not the user's main account).
-- Email: **Brevo REST API over HTTPS** only — never SMTP sockets from Workers/Edge Functions. Reminder pipeline: pg_cron → pg_net → `/api/jobs/send` (shared-secret header) → Brevo.
+- Email: **Brevo REST API over HTTPS** is the default and the only path from the Worker — Cloudflare Workers cannot open SMTP sockets at all. The clinic's optional custom-SMTP path runs in a **Supabase Edge Function on port 465** (Deno blocks 25 and 587); that Edge Function is the single sanctioned SMTP socket in the system. Reminder pipeline: pg_cron → pg_net → `/api/jobs/send` (shared-secret header) → Brevo.
 - PWA via Serwist. FullCalendar (MIT) for staff/doctor calendar — always `next/dynamic` import (3MB worker limit).
 
 ## Non-negotiable conventions
@@ -17,6 +17,8 @@ Full blueprint: `docs/PLAN.md` (canonical copy of the approved plan). Progress: 
 - **Cancel ≠ delete** (status → broken/unscheduled), **reschedule = atomic UPDATE** preserving the row id.
 - **Clinical notes immutable after signing** (trigger-enforced); changes = addendum rows. Audit every clinical **read and write** to `private.audit_log` (append-only).
 - **Roles:** `user_role` JWT claim via Custom Access Token Hook (from `profiles.role` + `is_active` check) is THE source for middleware AND RLS. Never `user_metadata`.
+- **Every privileged server action re-checks the role in-action.** Middleware gates *navigation*; a Server Action is a POST of an action id to whatever path the user is already on, so a staff user sitting on `/today` can invoke a superadmin action's id. Middleware never sees it as an `/admin` request. Check the claim inside the action (or let a `security definer` RPC do it) — never rely on "this action is only imported by an admin page".
+- **`x-pathname` / `x-role` request headers are presentation input only.** Middleware builds them from `request.headers`, which a client controls, so it always set-or-deletes them. Nothing may ever authorize on them.
 - All times UTC in DB; clinic TZ (`Asia/Manila`) from settings; durations = counts of 10-minute units.
 - Everything sized in rem; tokens in `globals.css` reference `--brand-hue`; never color-only status (chip + label + icon).
 - Never cache PHI in the service worker; recents/search state server-side, never localStorage.
