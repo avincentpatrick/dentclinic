@@ -18,7 +18,11 @@ jobs:
       - name: Lint
         run: npm run lint
       - name: Typecheck
-        run: npx tsc --noEmit
+        run: npm run typecheck
+      # Cheap and deterministic (~1s): 52 token pairs x 360 brand hues x 2 themes.
+      # Runs before the ~90s build so a bad palette fails fast.
+      - name: Contrast (all brand hues, both themes)
+        run: npm run check:contrast
       - name: Build (OpenNext Cloudflare)
         run: npx opennextjs-cloudflare build
         env:

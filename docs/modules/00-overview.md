@@ -23,6 +23,8 @@ The system is 17 modules (docs `01`–`17` in this folder). The full approved bl
 ## Schema conventions (binding — see also AGENTS.md)
 
 - Every domain table: `id uuid pk default gen_random_uuid()`, `created_at/updated_at timestamptz` (UTC), `deleted_at/deleted_by` soft delete. RLS always filters `deleted_at IS NULL`; unique constraints are partial (`WHERE deleted_at IS NULL`).
+- **Soft-delete exemption — config satellites.** A table that is 1:1 with an identity row, has no dependents, offers no archive affordance, and whose "reset" is semantically an UPDATE is exempt from `deleted_at/deleted_by`. It still gets **no DELETE grant**. So far: `user_preferences` (0004) — reasoning in [02-clinic-settings.md](02-clinic-settings.md). Domain, clinical, and financial tables are never exempt.
+- **Audit exemption.** Write-audit triggers go on domain/clinical/PHI tables. Personal display preferences are not audited: `private.audit_log` is append-only with 6+ year retention and exempt from purge, so auditing a theme toggle adds permanent rows with no investigative value. `settings_change` is for clinic-wide settings that affect other people.
 - Schemas: `public` = domain; `private` = `audit_log`, `action_tokens`, `settings` (never exposed via PostgREST).
 - Enums: `app_role` (patient/doctor/staff/superadmin), `appt_status` (scheduled/complete/broken/unscheduled/planned/asap), `visit_status` (none/arrived/in_chair/done), `confirm_status`, `acceptance_status` (pending/accepted/referred).
 - Durations are integer counts of **10-minute units**. Appointment conflict math uses the generated `time_range tstzrange` (buffers included); patient-facing UI shows bare duration.

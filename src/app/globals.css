@@ -2,43 +2,359 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
-@custom-variant dark (&:is(.dark *));
+/* ---------------------------------------------------------------------------
+   Dark variant — TWO arms, both required.
+   Arm 1: the explicit `.dark` class (set server-side from the cookie).
+   Arm 2: `prefers-color-scheme` when the stored choice is "system", which the
+   server cannot resolve. Without arm 2 every `dark:` utility that shadcn ships
+   would silently desync from the tokens under system-dark.
+--------------------------------------------------------------------------- */
+@custom-variant dark {
+  &:is(.dark *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:is(html[data-theme="system"] *) {
+      @slot;
+    }
+  }
+}
+
+/* Injected as an inline style on <html> from public.clinic_branding.
+   Registered so a malformed settings value falls back to the initial value
+   instead of invalidating every colour in the document. */
+@property --brand-hue {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 195;
+}
+
+/* ===========================================================================
+   LADDERS
+
+   Two ladders drive everything: lightness (--l-*) and chroma (--c-*).
+   `.dark` rewrites ONLY the lightness ladder plus the --c-tint multiplier —
+   that is the "lightness flip" in practice. Every token below is written once
+   and recomputes from the flipped ladder, so no token is ever redeclared
+   per-theme and hue/chroma carry across both themes automatically.
+
+   All values except --c-brand are inside sRGB for every hue 0–360.
+   Verified by scripts/check-contrast.mjs — do not hand-tune without re-running it.
+=========================================================================== */
+:root {
+  --brand-hue: 195; /* fallback; the real value arrives as an inline style */
+
+  /* chroma ladder — theme-independent */
+  --c-tint: 1; /* .dark scales the five "surface" chromas marked × tint */
+  --c-canvas: 0.004;
+  --c-surface: 0.002;
+  --c-raised: 0.011;
+  --c-line: 0.013;
+  --c-on-brand: 0.006;
+  --c-line-strong: 0.022;
+  --c-dim: 0.024;
+  --c-brand: 0.13; /* intentionally beyond gamut at h175–235; see 01-tokens.md */
+  --c-ink-soft: 0.04;
+  --c-ink: 0.012;
+
+  /* lightness ladder — LIGHT */
+  --l-canvas: 0.985;
+  --l-surface: 0.995;
+  --l-raised: 0.955;
+  --l-line: 0.905;
+  --l-line-strong: 0.645; /* 3:1 vs canvas — WCAG 1.4.11 non-text contrast */
+  --l-dim: 0.505;
+  --l-brand: 0.5;
+  --l-on-brand: 0.985;
+  --l-ink-soft: 0.32;
+  --l-ink: 0.21;
+
+  /* semantic ladder — fixed-hue tokens share it so .dark flips them for free */
+  --l-sem: 0.52; /* solid: dot / icon / border */
+  --l-sem-soft: 0.945; /* chip background */
+  --l-sem-on-soft: 0.4; /* chip text */
+  --f-sem-soft: 0.16; /* chroma factor for chip background */
+  --f-sem-on-soft: 0.65; /* chroma factor for chip text */
+
+  color-scheme: light;
+}
+
+.dark {
+  --c-tint: 2.2;
+  --l-canvas: 0.165;
+  --l-surface: 0.205;
+  --l-raised: 0.265;
+  --l-line: 0.305;
+  --l-line-strong: 0.515;
+  --l-dim: 0.715;
+  --l-brand: 0.72;
+  --l-on-brand: 0.19;
+  --l-ink-soft: 0.9;
+  --l-ink: 0.965;
+  --l-sem: 0.74;
+  --l-sem-soft: 0.285;
+  --l-sem-on-soft: 0.855;
+  --f-sem-soft: 0.3;
+  --f-sem-on-soft: 0.5;
+
+  color-scheme: dark;
+}
+
+/* "System" resolved by the UA — no blocking script, works with JS disabled.
+   KEEP THIS BODY IDENTICAL TO .dark ABOVE; scripts/check-contrast.mjs asserts it. */
+@media (prefers-color-scheme: dark) {
+  html[data-theme="system"] {
+    --c-tint: 2.2;
+    --l-canvas: 0.165;
+    --l-surface: 0.205;
+    --l-raised: 0.265;
+    --l-line: 0.305;
+    --l-line-strong: 0.515;
+    --l-dim: 0.715;
+    --l-brand: 0.72;
+    --l-on-brand: 0.19;
+    --l-ink-soft: 0.9;
+    --l-ink: 0.965;
+    --l-sem: 0.74;
+    --l-sem-soft: 0.285;
+    --l-sem-on-soft: 0.855;
+    --f-sem-soft: 0.3;
+    --f-sem-on-soft: 0.5;
+
+    color-scheme: dark;
+  }
+}
+
+html[data-theme="system"] {
+  color-scheme: light dark;
+}
+
+/* ===========================================================================
+   TOKENS — defined once; the ladder flip recomputes them.
+=========================================================================== */
+:root {
+  --background: oklch(var(--l-canvas) calc(var(--c-canvas) * var(--c-tint)) var(--brand-hue));
+  --foreground: oklch(var(--l-ink) var(--c-ink) var(--brand-hue));
+  --card: oklch(var(--l-surface) calc(var(--c-surface) * var(--c-tint)) var(--brand-hue));
+  --card-foreground: var(--foreground);
+  --popover: var(--card);
+  --popover-foreground: var(--foreground);
+  --primary: oklch(var(--l-brand) var(--c-brand) var(--brand-hue));
+  --primary-foreground: oklch(var(--l-on-brand) calc(var(--c-on-brand) * var(--c-tint)) var(--brand-hue));
+  --secondary: oklch(var(--l-raised) calc(var(--c-raised) * var(--c-tint)) var(--brand-hue));
+  --secondary-foreground: oklch(var(--l-ink-soft) var(--c-ink-soft) var(--brand-hue));
+  --muted: var(--secondary);
+  --muted-foreground: oklch(var(--l-dim) var(--c-dim) var(--brand-hue));
+  --accent: var(--secondary);
+  --accent-foreground: var(--secondary-foreground);
+
+  /* --border is decorative (dividers). --input is the WCAG 1.4.11 3:1 boundary
+     used by interactive controls. Stock shadcn uses one token at ~1.3:1, which
+     fails AA for form borders — this split is deliberate. */
+  --border: oklch(var(--l-line) calc(var(--c-line) * var(--c-tint)) var(--brand-hue));
+  --input: oklch(var(--l-line-strong) var(--c-line-strong) var(--brand-hue));
+  --ring: var(--primary);
+
+  --sidebar: var(--card);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--secondary);
+  --sidebar-accent-foreground: var(--secondary-foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+
+  --radius: 0.625rem;
+
+  /* -------------------------------------------------------------------------
+     SEMANTIC SCALE — FIXED HUES, NEVER --brand-hue.
+     A green-branded clinic must not get a green "urgent" alert; staff learn
+     these colours across thousands of chart opens; and they must survive the
+     trip into emails and print CSS where no brand tint is injected.
+     Full argument: docs/design-system/01-tokens.md.
+
+     Per token: <name> (solid: dot/icon/border), -soft (chip bg), -on-soft (chip text).
+     Text on a solid fill is always --on-solid.
+  ------------------------------------------------------------------------- */
+  --on-solid: oklch(var(--l-on-brand) 0 0);
+
+  --h-scheduled: 250;
+  --c-scheduled: 0.11;
+  --h-confirmed: 150;
+  --c-confirmed: 0.13;
+  --h-in-chair: 295;
+  --c-in-chair: 0.14;
+  --h-completed: 250;
+  --c-completed: 0.02; /* settled/neutral, not celebratory */
+  --h-no-show: 55;
+  --c-no-show: 0.12;
+  --h-cancelled: 20;
+  --c-cancelled: 0.045; /* cancel ≠ failure: muted, not alarm red */
+  --h-healthy: 150;
+  --c-healthy: 0.13;
+  --h-watch: 75;
+  --c-watch: 0.104; /* h75 is gamut-tight at --l-sem; 0.11 overshoots */
+  --h-urgent: 27;
+  --c-urgent: 0.145;
+  --h-success: 150;
+  --c-success: 0.13;
+  --h-warning: 75;
+  --c-warning: 0.104; /* same gamut limit as --c-watch */
+  --h-info: 250;
+  --c-info: 0.11;
+  --h-destructive: 27;
+  --c-destructive: 0.15;
+
+  --status-scheduled: oklch(var(--l-sem) var(--c-scheduled) var(--h-scheduled));
+  --status-scheduled-soft: oklch(var(--l-sem-soft) calc(var(--c-scheduled) * var(--f-sem-soft)) var(--h-scheduled));
+  --status-scheduled-on-soft: oklch(var(--l-sem-on-soft) calc(var(--c-scheduled) * var(--f-sem-on-soft)) var(--h-scheduled));
+
+  --status-confirmed: oklch(var(--l-sem) var(--c-confirmed) var(--h-confirmed));
+  --status-confirmed-soft: oklch(var(--l-sem-soft) calc(var(--c-confirmed) * var(--f-sem-soft)) var(--h-confirmed));
+  --status-confirmed-on-soft: oklch(var(--l-sem-on-soft) calc(var(--c-confirmed) * var(--f-sem-on-soft)) var(--h-confirmed));
+
+  --status-in-chair: oklch(var(--l-sem) var(--c-in-chair) var(--h-in-chair));
+  --status-in-chair-soft: oklch(var(--l-sem-soft) calc(var(--c-in-chair) * var(--f-sem-soft)) var(--h-in-chair));
+  --status-in-chair-on-soft: oklch(var(--l-sem-on-soft) calc(var(--c-in-chair) * var(--f-sem-on-soft)) var(--h-in-chair));
+
+  --status-completed: oklch(var(--l-sem) var(--c-completed) var(--h-completed));
+  --status-completed-soft: oklch(var(--l-sem-soft) calc(var(--c-completed) * var(--f-sem-soft)) var(--h-completed));
+  --status-completed-on-soft: oklch(var(--l-sem-on-soft) calc(var(--c-completed) * var(--f-sem-on-soft)) var(--h-completed));
+
+  --status-no-show: oklch(var(--l-sem) var(--c-no-show) var(--h-no-show));
+  --status-no-show-soft: oklch(var(--l-sem-soft) calc(var(--c-no-show) * var(--f-sem-soft)) var(--h-no-show));
+  --status-no-show-on-soft: oklch(var(--l-sem-on-soft) calc(var(--c-no-show) * var(--f-sem-on-soft)) var(--h-no-show));
+
+  --status-cancelled: oklch(var(--l-sem) var(--c-cancelled) var(--h-cancelled));
+  --status-cancelled-soft: oklch(var(--l-sem-soft) calc(var(--c-cancelled) * var(--f-sem-soft)) var(--h-cancelled));
+  --status-cancelled-on-soft: oklch(var(--l-sem-on-soft) calc(var(--c-cancelled) * var(--f-sem-on-soft)) var(--h-cancelled));
+
+  --clinical-healthy: oklch(var(--l-sem) var(--c-healthy) var(--h-healthy));
+  --clinical-healthy-soft: oklch(var(--l-sem-soft) calc(var(--c-healthy) * var(--f-sem-soft)) var(--h-healthy));
+  --clinical-healthy-on-soft: oklch(var(--l-sem-on-soft) calc(var(--c-healthy) * var(--f-sem-on-soft)) var(--h-healthy));
+
+  --clinical-watch: oklch(var(--l-sem) var(--c-watch) var(--h-watch));
+  --clinical-watch-soft: oklch(var(--l-sem-soft) calc(var(--c-watch) * var(--f-sem-soft)) var(--h-watch));
+  --clinical-watch-on-soft: oklch(var(--l-sem-on-soft) calc(var(--c-watch) * var(--f-sem-on-soft)) var(--h-watch));
+
+  --clinical-urgent: oklch(var(--l-sem) var(--c-urgent) var(--h-urgent));
+  --clinical-urgent-soft: oklch(var(--l-sem-soft) calc(var(--c-urgent) * var(--f-sem-soft)) var(--h-urgent));
+  --clinical-urgent-on-soft: oklch(var(--l-sem-on-soft) calc(var(--c-urgent) * var(--f-sem-on-soft)) var(--h-urgent));
+
+  --success: oklch(var(--l-sem) var(--c-success) var(--h-success));
+  --success-foreground: var(--on-solid);
+  --success-soft: oklch(var(--l-sem-soft) calc(var(--c-success) * var(--f-sem-soft)) var(--h-success));
+  --success-on-soft: oklch(var(--l-sem-on-soft) calc(var(--c-success) * var(--f-sem-on-soft)) var(--h-success));
+
+  --warning: oklch(var(--l-sem) var(--c-warning) var(--h-warning));
+  --warning-foreground: var(--on-solid);
+  --warning-soft: oklch(var(--l-sem-soft) calc(var(--c-warning) * var(--f-sem-soft)) var(--h-warning));
+  --warning-on-soft: oklch(var(--l-sem-on-soft) calc(var(--c-warning) * var(--f-sem-on-soft)) var(--h-warning));
+
+  --info: oklch(var(--l-sem) var(--c-info) var(--h-info));
+  --info-foreground: var(--on-solid);
+  --info-soft: oklch(var(--l-sem-soft) calc(var(--c-info) * var(--f-sem-soft)) var(--h-info));
+  --info-on-soft: oklch(var(--l-sem-on-soft) calc(var(--c-info) * var(--f-sem-on-soft)) var(--h-info));
+
+  --destructive: oklch(var(--l-sem) var(--c-destructive) var(--h-destructive));
+  --destructive-foreground: var(--on-solid);
+  --destructive-soft: oklch(var(--l-sem-soft) calc(var(--c-destructive) * var(--f-sem-soft)) var(--h-destructive));
+  --destructive-on-soft: oklch(var(--l-sem-on-soft) calc(var(--c-destructive) * var(--f-sem-on-soft)) var(--h-destructive));
+
+  /* charts: 1 = brand, 2–5 fixed and spaced. Revisited in Phase 8. */
+  --chart-1: var(--primary);
+  --chart-2: oklch(var(--l-sem) 0.13 150);
+  --chart-3: oklch(var(--l-sem) 0.14 295);
+  --chart-4: oklch(var(--l-sem) 0.12 55);
+  --chart-5: oklch(var(--l-sem) 0.11 200);
+}
 
 @theme inline {
+  /* Was `--font-sans: var(--font-sans)` — self-referential, so the app rendered
+     in the browser default font. next/font defines --font-geist-sans. */
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-heading: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --color-on-solid: var(--on-solid);
+
+  --color-status-scheduled: var(--status-scheduled);
+  --color-status-scheduled-soft: var(--status-scheduled-soft);
+  --color-status-scheduled-on-soft: var(--status-scheduled-on-soft);
+  --color-status-confirmed: var(--status-confirmed);
+  --color-status-confirmed-soft: var(--status-confirmed-soft);
+  --color-status-confirmed-on-soft: var(--status-confirmed-on-soft);
+  --color-status-in-chair: var(--status-in-chair);
+  --color-status-in-chair-soft: var(--status-in-chair-soft);
+  --color-status-in-chair-on-soft: var(--status-in-chair-on-soft);
+  --color-status-completed: var(--status-completed);
+  --color-status-completed-soft: var(--status-completed-soft);
+  --color-status-completed-on-soft: var(--status-completed-on-soft);
+  --color-status-no-show: var(--status-no-show);
+  --color-status-no-show-soft: var(--status-no-show-soft);
+  --color-status-no-show-on-soft: var(--status-no-show-on-soft);
+  --color-status-cancelled: var(--status-cancelled);
+  --color-status-cancelled-soft: var(--status-cancelled-soft);
+  --color-status-cancelled-on-soft: var(--status-cancelled-on-soft);
+
+  --color-clinical-healthy: var(--clinical-healthy);
+  --color-clinical-healthy-soft: var(--clinical-healthy-soft);
+  --color-clinical-healthy-on-soft: var(--clinical-healthy-on-soft);
+  --color-clinical-watch: var(--clinical-watch);
+  --color-clinical-watch-soft: var(--clinical-watch-soft);
+  --color-clinical-watch-on-soft: var(--clinical-watch-on-soft);
+  --color-clinical-urgent: var(--clinical-urgent);
+  --color-clinical-urgent-soft: var(--clinical-urgent-soft);
+  --color-clinical-urgent-on-soft: var(--clinical-urgent-on-soft);
+
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-success-soft: var(--success-soft);
+  --color-success-on-soft: var(--success-on-soft);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-on-soft: var(--warning-on-soft);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-info-soft: var(--info-soft);
+  --color-info-on-soft: var(--info-on-soft);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-soft: var(--destructive-soft);
+  --color-destructive-on-soft: var(--destructive-on-soft);
+
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -48,83 +364,57 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-:root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
-}
-
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
-}
-
 @layer base {
+  /* Percentages, not px: a user who set their browser to 20px keeps that scale.
+     Bare attribute selector (not html[...]) so the /design-system gallery can
+     nest font steps — percentages compose relative to the parent. */
+  html {
+    font-size: 100%;
+    -webkit-text-size-adjust: 100%;
+  }
+  [data-font-size="standard"] {
+    font-size: 100%;
+  }
+  [data-font-size="comfortable"] {
+    font-size: 112.5%;
+  }
+  [data-font-size="large"] {
+    font-size: 125%;
+  }
+  [data-font-size="xlarge"] {
+    font-size: 137.5%;
+  }
+
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans;
   }
+
+  /* Keeps a focused element from hiding under the sticky bottom tab bar (SC 2.4.11). */
   html {
-    @apply font-sans;
+    scroll-padding-bottom: calc(4rem + env(safe-area-inset-bottom));
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  /* Explicit user opt-in, independent of the OS setting. */
+  html[data-reduce-motion="true"] *,
+  html[data-reduce-motion="true"] *::before,
+  html[data-reduce-motion="true"] *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

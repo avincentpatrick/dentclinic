@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { AppearanceMenu } from "@/components/theme/AppearanceMenu";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -53,7 +54,10 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-dvh items-center justify-center bg-background p-4">
+    <main className="relative flex min-h-dvh items-center justify-center p-4">
+      <div className="absolute right-4 top-4">
+        <AppearanceMenu />
+      </div>
       <div className="w-full max-w-sm rounded-xl border border-border bg-card p-6 shadow-sm">
         <h1 className="text-xl font-semibold text-card-foreground">Sign in</h1>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -126,7 +130,7 @@ export default function LoginPage() {
         )}
 
         {error && (
-          <p role="alert" className="mt-4 text-sm text-red-600 dark:text-red-400">
+          <p role="alert" className="mt-4 text-sm text-destructive-on-soft">
             {error}
           </p>
         )}

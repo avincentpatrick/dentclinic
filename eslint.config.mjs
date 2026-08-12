@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Build output — generated bundles, not source. Present locally after a
+    // build; absent in CI, which is why this gap went unnoticed in Phase 0.
+    ".open-next/**",
+    ".wrangler/**",
   ]),
 ]);
 

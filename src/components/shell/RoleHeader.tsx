@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "@/app/actions/auth";
+import { AppearanceMenu } from "@/components/theme/AppearanceMenu";
 
 /** Temporary Phase-0 header — replaced by the full app shell in Phase 1. */
 export async function RoleHeader() {
@@ -25,8 +26,9 @@ export async function RoleHeader() {
       <span className="font-semibold">DentClinic</span>
       <div className="flex items-center gap-3 text-sm text-muted-foreground">
         <span>{label}</span>
+        <AppearanceMenu />
         <form action={signOut}>
-          <button className="rounded-md border border-border px-3 py-1.5 hover:bg-accent">
+          <button className="min-h-11 rounded-md border border-input px-3 py-1.5 hover:bg-accent">
             Sign out
           </button>
         </form>
