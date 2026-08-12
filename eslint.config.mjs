@@ -17,6 +17,37 @@ const eslintConfig = defineConfig([
     ".open-next/**",
     ".wrangler/**",
   ]),
+  {
+    // Underscore-prefixed args are an intentional "unused on purpose" marker —
+    // used by the Phase 3/6 seams in src/lib/status/derive.ts.
+    rules: {
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrorsIgnorePattern: "^_" },
+      ],
+    },
+  },
+  {
+    // The gallery is the one route with an audit bypass. Keeping it to
+    // hard-coded fixtures makes the blast radius zero by construction rather
+    // than by discipline. layout.tsx is excluded: it IS the gate and
+    // legitimately needs Supabase.
+    files: ["src/components/gallery/**", "src/app/design-system/page.tsx"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@/lib/supabase/*", "**/lib/supabase/*", "@/app/actions/*"],
+              message:
+                "The /design-system gallery must render hard-coded fixtures only — never real data or server actions. See docs/design-system/06-accessibility.md.",
+            },
+          ],
+        },
+      ],
+    },
+  },
 ]);
 
 export default eslintConfig;

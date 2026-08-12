@@ -130,9 +130,21 @@ html[data-theme="system"] {
 }
 
 /* ===========================================================================
-   TOKENS — defined once; the ladder flip recomputes them.
+   TOKENS — one declaration block, two selectors.
+
+   Why `.dark` is listed here as well as above: a custom property resolves
+   var() substitutions on the element where it is DECLARED, not where it is
+   used. If the tokens were declared only on :root, then `--background` would
+   compute once on <html> and inherit downward as a fixed colour — so a NESTED
+   <div class="dark"> would flip the ladder and change nothing.
+
+   Declaring the same block on `.dark` means any element carrying that class
+   recomputes every token against its own ladder. That is what makes the
+   /design-system matrix able to show both themes on one page, and it costs
+   nothing: still one block, still one definition per token.
 =========================================================================== */
-:root {
+:root,
+.dark {
   --background: oklch(var(--l-canvas) calc(var(--c-canvas) * var(--c-tint)) var(--brand-hue));
   --foreground: oklch(var(--l-ink) var(--c-ink) var(--brand-hue));
   --card: oklch(var(--l-surface) calc(var(--c-surface) * var(--c-tint)) var(--brand-hue));

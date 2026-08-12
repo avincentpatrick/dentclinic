@@ -26,9 +26,23 @@ Consequences worth knowing:
 - **No token is ever redeclared per theme.** Adding a token means adding one line, not two.
 - **Rebranding requires no rebuild and no CSS regeneration** — change the DB row, reload.
   Verified live on 2026-08-12 by flipping the hue to 25 and back with no deploy.
-- Because `.dark` is a plain class, a nested `<div class="dark">` re-declares the ladder
-  for its subtree. The Phase 1.2 `/design-system` gallery gets side-by-side light/dark
-  rendering for free.
+- A nested `<div class="dark">` flips its whole subtree, which is what lets the
+  `/design-system` gallery show both themes on one page.
+
+### Why the token block is `:root, .dark` and not just `:root`
+
+This one is subtle and cost a real bug in 1.2. **A custom property resolves its `var()`
+substitutions on the element where it is DECLARED, not where it is used.** If the tokens
+were declared only on `:root`, `--background` would compute once on `<html>` — against
+`<html>`'s ladder — and then inherit downward as a *fixed colour*. A nested
+`<div class="dark">` would flip `--l-canvas` and change nothing, because `--background`
+was already resolved upstream.
+
+Listing `.dark` in the same selector list means any element carrying the class recomputes
+every token against its own ladder. Still one block, still one definition per token.
+
+The symptom, if this ever regresses: the gallery's "Dark" panes render light, and the axe
+run passes while silently testing light mode twice.
 
 ## The ladders
 

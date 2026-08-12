@@ -1,16 +1,21 @@
-import { RoleHeader } from "@/components/shell/RoleHeader";
+import type { Metadata } from "next";
+import { LayoutDashboard } from "lucide-react";
+import { PageHeader } from "@/components/shell/PageHeader";
+import { EmptyState } from "@/components/shared/EmptyState";
+
+export const metadata: Metadata = { title: "Dashboard" };
 
 export default function AdminDashboard() {
   return (
-    <div className="flex min-h-dvh flex-col">
-      <RoleHeader />
-      <main className="mx-auto w-full max-w-5xl p-4">
-        <h1 className="text-2xl font-semibold">Clinic overview</h1>
-        <p className="mt-2 text-muted-foreground">
-          Superadmin dashboard — KPIs, settings, lookups, users, and audit log
-          arrive in Phases 2 & 8.
-        </p>
-      </main>
-    </div>
+    <>
+      <PageHeader title="Clinic overview" description="Utilisation, exceptions and revenue at a glance." />
+      <EmptyState
+        register="first-use"
+        icon={LayoutDashboard}
+        title="No data yet"
+        description="KPIs, the utilisation heatmap and exception queues arrive in Phase 8."
+        action={{ label: "Open design system", href: "/design-system" }}
+      />
+    </>
   );
 }

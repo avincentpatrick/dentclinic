@@ -1,16 +1,20 @@
-import { RoleHeader } from "@/components/shell/RoleHeader";
+import type { Metadata } from "next";
+import { CalendarClock } from "lucide-react";
+import { PageHeader } from "@/components/shell/PageHeader";
+import { EmptyState } from "@/components/shared/EmptyState";
+
+export const metadata: Metadata = { title: "Today" };
 
 export default function TodayPage() {
   return (
-    <div className="flex min-h-dvh flex-col">
-      <RoleHeader />
-      <main className="mx-auto w-full max-w-3xl p-4">
-        <h1 className="text-2xl font-semibold">Today</h1>
-        <p className="mt-2 text-muted-foreground">
-          Staff & doctor day view — the agenda timeline and patient queue land
-          here in Phases 3 & 8.
-        </p>
-      </main>
-    </div>
+    <>
+      <PageHeader title="Today" description="The day's schedule and patient queue." />
+      <EmptyState
+        register="cleared"
+        icon={CalendarClock}
+        title="Nothing booked today"
+        description="The timeline, queue board and day stats arrive in Phases 3 and 8."
+      />
+    </>
   );
 }

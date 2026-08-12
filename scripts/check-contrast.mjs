@@ -141,11 +141,34 @@ function findBlock(selectorRegex) {
   return blockAfter(css, m.index + m[0].length - 1);
 }
 
-// `:root` appears twice (ladders, then tokens). Merge every occurrence.
+/**
+ * Collect every top-level block whose selector list mentions `:root` — the
+ * ladders live in `:root`, the tokens in `:root, .dark`. Scanning selector
+ * lists rather than matching a bare `:root` keeps this working when a selector
+ * is added to a block.
+ */
 const rootDecls = {};
-for (const m of css.matchAll(/(^|\n)\s*:root\s*\{/g)) {
-  const body = blockAfter(css, m.index + m[0].length - 1);
-  if (body) Object.assign(rootDecls, declsOf(body));
+{
+  let i = 0;
+  let selectorStart = 0;
+  let depth = 0;
+  while (i < css.length) {
+    const ch = css[i];
+    if (ch === "{") {
+      if (depth === 0) {
+        const selector = css.slice(selectorStart, i);
+        if (/(^|,)\s*:root\s*(,|$)/.test(selector.replace(/\/\*[\s\S]*?\*\//g, "").trim())) {
+          const body = blockAfter(css, i);
+          if (body) Object.assign(rootDecls, declsOf(body));
+        }
+      }
+      depth++;
+    } else if (ch === "}") {
+      depth--;
+      if (depth === 0) selectorStart = i + 1;
+    }
+    i++;
+  }
 }
 if (Object.keys(rootDecls).length === 0) fail("No :root block found in globals.css");
 

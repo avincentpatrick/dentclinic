@@ -22,6 +22,10 @@ Email-only passwordless auth (OTP/magic link) for patients; invited accounts for
 2. `is_active = false` ⇒ hook raises `account_deactivated` ⇒ no token issued (verified 2026-08-12).
 3. Self-signup always lands as `patient` (superadmin bootstrap excepted, one-time).
 4. Middleware ([src/middleware.ts](../../src/middleware.ts)): unauthenticated → `/login`; wrong role → own home (never 404); logged-in on `/login` or `/` → own home. Path rules in [src/lib/roles.ts](../../src/lib/roles.ts).
+4a. **`isAllowed()` is fail-closed** (since 1.2): an unregistered path is denied, never silently public. It previously ended in `return true`, which made every future route public by default. `scripts/check-routes.mjs` fails CI if a real route has no entry in `ROUTE_RULES`.
+4b. **`/design-system` is gated by its own layout, not middleware** — it needs a runtime-readable env bypass for the axe run, and middleware's `process.env` is inlined at build time in the Edge runtime. Same authorisation check, safer bypass. See [06-accessibility.md](../design-system/06-accessibility.md).
+4c. Middleware collects cookie writes and replays them onto **every** response. Before 1.2 it built a fresh `NextResponse.redirect()` on three paths and dropped rotated Supabase auth cookies whenever a token refresh coincided with a redirect.
+5a. **`IdleTimeoutGuard` is the real session control**, not the JWT. supabase-js auto-refreshes tokens in the background regardless of user activity, so a tab left open never expires on its own. Staff/doctor/superadmin 15 min, patient 30 min; 60s warning with an extend action (WCAG 2.2 SC 2.2.1). Cross-tab via `BroadcastChannel` — no storage of any kind.
 5. Role/`is_active` changes: superadmin server action with service role only (column guard trigger lands with the users-admin screen, Phase 2).
 6. Every `profiles` write is audited; audit_log accepts actions: read/create/update/delete/sign/export/login/settings_change.
 

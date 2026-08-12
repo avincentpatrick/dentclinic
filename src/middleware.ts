@@ -1,6 +1,6 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { isAllowed, roleHome, type AppRole } from "@/lib/roles";
+import { isAllowed, isPublicPath, roleHome, type AppRole } from "@/lib/roles";
 import {
   APPEARANCE_COOKIE_OPTIONS,
   FONT_COOKIE,
@@ -10,12 +10,27 @@ import {
   parseTheme,
 } from "@/lib/appearance";
 
-const PUBLIC_PATHS = ["/", "/login", "/auth", "/book", "/a/", "/settings/appearance"];
+// The route table lives in @/lib/roles — one source of truth for middleware,
+// the /design-system gate, and scripts/check-routes.mjs.
 
-function isPublic(pathname: string): boolean {
-  return PUBLIC_PATHS.some(
-    (p) => pathname === p || (p !== "/" && pathname.startsWith(p)),
-  );
+/**
+ * Routes whose authorisation is enforced by their own layout instead of here.
+ *
+ * Only /design-system, and for a specific reason: it needs an env-gated bypass
+ * so the axe run can reach it without a session. Middleware runs in the Edge
+ * runtime, where Next inlines `process.env` at BUILD time — a bypass here could
+ * never be toggled at run time, and if it were set during a build it would be
+ * baked into the artifact. `src/app/design-system/layout.tsx` is a Server
+ * Component, so it reads `process.env` at RUNTIME on Workers, where A11Y_AUDIT
+ * is undefined. Same authorisation check, strictly safer bypass.
+ *
+ * These paths still appear in ROUTE_RULES so check-routes.mjs covers them and
+ * the role requirement stays documented in one place.
+ */
+const LAYOUT_GATED = ["/design-system"];
+
+function isLayoutGated(pathname: string): boolean {
+  return LAYOUT_GATED.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 
 export async function middleware(request: NextRequest) {
@@ -96,14 +111,16 @@ export async function middleware(request: NextRequest) {
     pending.push({ name: SYNC_COOKIE, value: "", options: { path: "/", maxAge: 0 } });
   }
 
-  if (!isPublic(pathname) && role === null) {
+  const gatedElsewhere = isLayoutGated(pathname);
+
+  if (!gatedElsewhere && !isPublicPath(pathname) && role === null) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return finish(NextResponse.redirect(url));
   }
 
   // Wrong-role access → redirect to own home, never 404 (no route enumeration).
-  if (!isPublic(pathname) && !isAllowed(pathname, role)) {
+  if (!gatedElsewhere && !isPublicPath(pathname) && !isAllowed(pathname, role)) {
     const url = request.nextUrl.clone();
     url.pathname = roleHome(role);
     return finish(NextResponse.redirect(url));

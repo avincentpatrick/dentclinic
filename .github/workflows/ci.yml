@@ -15,16 +15,45 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+
+      # Cheap, deterministic checks first — they fail in seconds rather than
+      # after the ~90s build.
       - name: Lint
         run: npm run lint
       - name: Typecheck
         run: npm run typecheck
-      # Cheap and deterministic (~1s): 52 token pairs x 360 brand hues x 2 themes.
-      # Runs before the ~90s build so a bad palette fails fast.
-      - name: Contrast (all brand hues, both themes)
+      - name: Contrast (52 pairs x 360 brand hues x 2 themes)
         run: npm run check:contrast
+      - name: Docs / gallery sync
+        run: npm run check:docs
+
+      # NOTE: A11Y_AUDIT=1 opens /design-system without a session so axe can
+      # reach it. THIS ARTIFACT MUST NEVER BE DEPLOYED. This workflow has no
+      # deploy job, and `npm run deploy` refuses to run with the flag set
+      # (scripts/assert-no-bypass.mjs). If a deploy job is ever added here,
+      # give the a11y run its own build + distDir first.
+      # See docs/design-system/06-accessibility.md.
       - name: Build (OpenNext Cloudflare)
         run: npx opennextjs-cloudflare build
+        env:
+          A11Y_AUDIT: "1"
+          NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+
+      - name: Route table coverage
+        run: npm run check:routes
+      - name: Worker size (3 MB free-tier limit)
+        run: npm run check:size
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Accessibility (axe + keyboard, desktop + mobile)
+        run: npm run test:a11y
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY }}

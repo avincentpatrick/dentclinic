@@ -1,16 +1,21 @@
-import { RoleHeader } from "@/components/shell/RoleHeader";
+import type { Metadata } from "next";
+import { CalendarHeart } from "lucide-react";
+import { PageHeader } from "@/components/shell/PageHeader";
+import { EmptyState } from "@/components/shared/EmptyState";
+
+export const metadata: Metadata = { title: "Home" };
 
 export default function PatientHome() {
   return (
-    <div className="flex min-h-dvh flex-col">
-      <RoleHeader />
-      <main className="mx-auto w-full max-w-lg p-4">
-        <h1 className="text-2xl font-semibold">Welcome</h1>
-        <p className="mt-2 text-muted-foreground">
-          Patient home — your next appointment, records, and booking will live
-          here (Phase 4 & 8).
-        </p>
-      </main>
-    </div>
+    <>
+      <PageHeader title="Welcome" description="Your next visit and quick actions." />
+      <EmptyState
+        register="first-use"
+        icon={CalendarHeart}
+        title="No upcoming visit"
+        description="Your next appointment will show here. Booking opens in Phase 4."
+        action={{ label: "Book a visit", href: "/book" }}
+      />
+    </>
   );
 }

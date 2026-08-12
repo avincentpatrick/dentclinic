@@ -30,7 +30,7 @@ export default async function AppearanceSettingsPage() {
 
       <Link
         href="/"
-        className="mt-8 inline-block text-sm text-muted-foreground underline-offset-4 hover:underline"
+        className="mt-8 inline-flex min-h-11 items-center text-sm text-muted-foreground underline-offset-4 hover:underline"
       >
         Back
       </Link>
