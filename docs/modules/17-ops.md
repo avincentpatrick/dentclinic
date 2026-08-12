@@ -26,7 +26,7 @@ Keep the clinic's app deployable, its data recoverable, and its paperwork compli
 
 | Date | What was done | Result |
 |---|---|---|
-| 2026-08-12 | Dumped schema (102,763 B) + data (20,912 B) from production; restored into local Supabase stack (Docker); verified profiles/settings/audit rows | _(fill result below when drill completes)_ |
+| 2026-08-12 | Dumped schema (102,763 B) + data (20,912 B) from production; wiped local Supabase stack (Docker) and restored both files via psql | **PASS** — auth.users 5/5, identities 5/5, profiles 5/5 (roles intact), audit_log 9/9, access-token hook function present. Schema: 0 errors. Data: 2 non-critical errors (auxiliary auth/storage tables version drift between cloud and local images — acceptable). Confirmed the data dump includes `auth` + `storage` schemas, so user identities survive a disaster. |
 
 ### Restore procedure (disaster runbook)
 1. Get the latest `backup-*.tar.gz.enc` artifact from GitHub Actions.

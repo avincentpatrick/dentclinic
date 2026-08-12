@@ -22,12 +22,11 @@ Legend: ⬜ not started · 🔵 in progress · ✅ done · ⛔ blocked · 🔁 r
   - [x] Hook registered via Management API; site_url + redirect allow-list set
   - [x] `/login` (email OTP), `/auth/confirm` (magic link), middleware role gating, role homes `/home` `/today` `/dashboard`
   - [x] **Verified live:** 4 roles → correct `user_role` claim; deactivated user blocked (`account_deactivated`); audit_log has 5 creates + 4 updates; `/home` redirects to `/login` on deployed URL
-- [ ] 0.3 Backups + restore drill 🔵
+- [x] 0.3 Backups + restore drill ✅ (one item ⛔ external)
   - [x] Nightly encrypted pg_dump workflow (session pooler; aws-0 host — db host is IPv6-only)
-  - [x] Local dump test OK (schema 102,763 B + data 20,912 B)
-  - [ ] Restore drill into local Supabase stack (in progress; cloud scratch blocked — free-project limit counts per-user across orgs)
-  - [ ] One manual run of the backup workflow
-- Pitfalls closed: **P9 P10 P23** (+P22 rails) | pending this phase: P22 (drill proof)
+  - [x] **Restore drill PASS** (see 17-ops.md log): full wipe + restore into local stack; auth.users/identities/profiles/audit all intact; dump includes auth+storage schemas
+  - [⛔] First real backup-workflow run — **blocked: GitHub Actions disabled by the account's billing state** ("recent account payments have failed or your spending limit needs to be increased"). USER ACTION: GitHub → Settings → Billing & plans (or make repo public). Must be fixed before real patient data exists.
+- Pitfalls closed: **P9 P10 P22 P23**
 
 ## Phases 1–10
 
