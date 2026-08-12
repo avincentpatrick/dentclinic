@@ -1,0 +1,38 @@
+name: Nightly DB backup
+
+# Patient data lives on Supabase FREE tier, which has NO backups.
+# This is the safety net — do not disable. Restore drill: docs/modules/17-ops.md.
+
+on:
+  schedule:
+    - cron: "0 18 * * *" # 02:00 Asia/Manila
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Dump database (roles + schema + data)
+        run: |
+          npx --yes supabase@latest db dump --db-url "$SUPABASE_DB_URL" -f roles.sql --role-only
+          npx --yes supabase@latest db dump --db-url "$SUPABASE_DB_URL" -f schema.sql
+          npx --yes supabase@latest db dump --db-url "$SUPABASE_DB_URL" -f data.sql --data-only --use-copy
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      - name: Encrypt
+        run: |
+          tar czf dump.tar.gz roles.sql schema.sql data.sql
+          openssl enc -aes-256-cbc -pbkdf2 -salt -in dump.tar.gz -out "backup-$(date +%Y%m%d).tar.gz.enc" -pass env:BACKUP_PASSPHRASE
+          rm -f roles.sql schema.sql data.sql dump.tar.gz
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+      - name: Upload encrypted backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-backup-${{ github.run_id }}
+          path: backup-*.tar.gz.enc
+          retention-days: 30
