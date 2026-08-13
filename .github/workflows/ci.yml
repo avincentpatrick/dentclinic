@@ -10,9 +10,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # Must match the development Node major. `npm run verify` is meant to be
+      # this workflow, offline — that guarantee is void if the two run different
+      # npm majors. It already was: dev is on Node 24 / npm 11, CI pinned 22 /
+      # npm 10, and npm 11 prunes wasm32-wasi optional deps from the lock that
+      # npm 10 still demands. `npm ci` therefore failed before a single gate ran
+      # — invisibly, because Actions had never executed since the lock was
+      # written. Bump both together, or not at all.
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
       - run: npm ci
 

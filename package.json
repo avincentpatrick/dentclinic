@@ -33,6 +33,12 @@
     "tailwind-merge": "^3.6.0",
     "tw-animate-css": "^1.4.0"
   },
+  "//overrides": "Two packages pin conflicting @emnapi versions inside the wasm32-wasi fallback branch (@unrs/resolver-binding-wasm32-wasi wants 1.10.0 exactly, @tailwindcss/oxide-wasm32-wasi wants ^1.11.1). npm 11 writes a lock for that graph which its OWN `npm ci` then rejects, so CI could never install. These are WebAssembly fallbacks that are never loaded on x64 Linux, macOS or Windows -- the native bindings win -- so collapsing them onto one version costs nothing. Remove when npm resolves the nested-optional bug.",
+  "overrides": {
+    "@emnapi/core": "^1.11.3",
+    "@emnapi/runtime": "^1.11.3",
+    "@emnapi/wasi-threads": "^1.2.3"
+  },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
     "@opennextjs/cloudflare": "^1.20.2",

@@ -15,7 +15,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24 # keep in step with ci.yml and the dev machine
       - name: Dump database (roles + schema + data)
         run: |
           npx --yes supabase@latest db dump --db-url "$SUPABASE_DB_URL" -f roles.sql --role-only

@@ -2,6 +2,9 @@ import { CalendarClock, Inbox } from "lucide-react";
 import { ErrorEmptyStateSpecimen } from "@/components/gallery/specimens/ErrorEmptyStateSpecimen";
 import { ClinicalChip, StatusChip, CLINICAL_LEVELS, STATUS_KEYS } from "@/components/shared/StatusChip";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { Field } from "@/components/shared/Field";
+import { InlineAlert } from "@/components/shared/InlineAlert";
+import { SubmitButton } from "@/components/shared/SubmitButton";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { UserChipSkeleton } from "@/components/shell/UserChip.skeleton";
 import { Button } from "@/components/ui/button";
@@ -105,6 +108,143 @@ export const registry: GalleryEntry[] = [
         name: "error",
         note: "Uses --warning, never --destructive: a red panel reads as the patient being in trouble.",
         render: () => <ErrorEmptyStateSpecimen />,
+      },
+    ],
+  },
+  {
+    id: "inline-alert",
+    name: "InlineAlert",
+    group: "feedback",
+    doc: "docs/design-system/04-components/inline-alert.md",
+    description: "A message bound to what is on screen. The counterpart to a toast, and the default of the two.",
+    specimens: [
+      {
+        name: "All four tones",
+        note: "Icon and announcement role are derived from the tone — never passed in.",
+        render: () => (
+          <div className="flex flex-col gap-3">
+            <InlineAlert tone="info" title="Emails send from a Brevo address">
+              <p>
+                Replies still reach the clinic inbox. Add a domain to send as your own address.
+              </p>
+            </InlineAlert>
+            <InlineAlert tone="warning" title="This may already be a patient">
+              <p>Maria Santos has the same email address and date of birth.</p>
+            </InlineAlert>
+            <InlineAlert tone="success" title="Brevo accepted the test email">
+              <p>Check the inbox — delivery is not the same as acceptance.</p>
+            </InlineAlert>
+            <InlineAlert tone="danger" title="Couldn&apos;t reach Brevo">
+              <p>The request timed out after 10 seconds.</p>
+            </InlineAlert>
+          </div>
+        ),
+      },
+      {
+        name: "Title only",
+        render: () => <InlineAlert tone="warning" title="No sending domain is configured yet." />,
+      },
+    ],
+  },
+  {
+    id: "field",
+    name: "Field",
+    group: "shared",
+    doc: "docs/design-system/04-components/field.md",
+    description:
+      "Label, control, hint and error wired together once. Owns the 44px / 1rem floor the shadcn input misses.",
+    specimens: [
+      {
+        name: "Text, with hint",
+        render: () => (
+          <div className="max-w-sm">
+            <Field
+              name="specimen-email"
+              label="Email"
+              type="email"
+              required
+              hint="Used for appointment reminders."
+            />
+          </div>
+        ),
+      },
+      {
+        name: "Invalid",
+        note: "aria-invalid on the control AND role=alert on the message — two mechanisms, both required.",
+        render: () => (
+          <div className="max-w-sm">
+            <Field
+              name="specimen-dob"
+              label="Date of birth"
+              type="date"
+              required
+              error="Date of birth cannot be in the future."
+            />
+          </div>
+        ),
+      },
+      {
+        name: "Select, textarea, checkbox",
+        note: "Native controls: they submit with JS off and get the platform picker on mobile.",
+        render: () => (
+          <div className="flex max-w-sm flex-col gap-4">
+            <Field
+              name="specimen-sex"
+              label="Sex"
+              as="select"
+              placeholder="Select…"
+              options={[
+                { value: "female", label: "Female" },
+                { value: "male", label: "Male" },
+                { value: "other", label: "Other" },
+                { value: "undisclosed", label: "Prefer not to say" },
+              ]}
+            />
+            <Field name="specimen-address" label="Address" as="textarea" rows={2} />
+            <Field
+              name="specimen-optin"
+              label="Send clinic news and offers"
+              as="checkbox"
+              hint="You can turn this off at any time."
+            />
+          </div>
+        ),
+      },
+      {
+        name: "Disabled",
+        render: () => (
+          <div className="max-w-sm">
+            <Field name="specimen-smtp" label="SMTP password" disabled hint="Set in Phase 5." />
+          </div>
+        ),
+      },
+    ],
+  },
+  {
+    id: "submit-button",
+    name: "SubmitButton",
+    group: "shared",
+    doc: "docs/design-system/04-components/submit-button.md",
+    description:
+      "Submit control for a server-action form. Spinner and disable-while-pending are enhancement only.",
+    specimens: [
+      {
+        name: "Idle",
+        note: "Pending state needs a real <form>, so only the idle state is a fixture. Live instance: /patients/new.",
+        render: () => (
+          <form action={() => {}}>
+            <SubmitButton idleLabel="Create patient" pendingLabel="Saving…" />
+          </form>
+        ),
+      },
+      {
+        name: "Unavailable",
+        note: "disabled is for actions that genuinely cannot run — never for invalid input.",
+        render: () => (
+          <form action={() => {}}>
+            <SubmitButton idleLabel="Send test email" pendingLabel="Sending…" disabled />
+          </form>
+        ),
       },
     ],
   },
