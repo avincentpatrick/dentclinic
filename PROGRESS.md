@@ -9,7 +9,7 @@ Legend: ⬜ not started · 🔵 in progress · ✅ done · ⛔ blocked · 🔁 r
 - **Deployed URL:** https://dentclinic.dentclinic-appointment-and-recording-system.workers.dev
 - **Supabase:** dentclinic `csslnpmjprfuzofomtda` (ap-southeast-1, dedicated account) — migrations **0001–0016** applied
 - **Repo:** github.com/avincentpatrick/dentclinic — **PUBLIC since 2026-08-13** (to unblock Actions; see 17-ops.md for what that changed)
-- **CI:** green end to end. Worker **1.31 MB** gzip (43.6% of 3 MB). 32 a11y tests + **42 authenticated-route tests** (`npm run test:authed`, opt-in), 32 routes.
+- **CI:** green end to end. Worker **1.31 MB** gzip (43.6% of 3 MB). 32 a11y tests + **42 authenticated-route tests** (`npm run test:authed`, opt-in), 32 routes. Committed DB verifications: `0015-feedback.sql` (54) and **`0016-scheduling.sql` (135)**, psql, re-runnable.
 - **Brand hue:** 195 (teal-cyan), live from `clinic_branding` — now editable **from `/admin/branding`**, proven on the deployed URL
 - **Deferred:** **2.2c email** — no free sending provider reachable and no domain (decisions 23–24). Phase 5 reminders depend on it; nothing before then does.
 - **Blocked on user:** **Cloudflare API token needs `D1 Edit`** (gates the branding tag cache only — see 17-ops.md; the app is correct without it, just uncached). Re-checked 2026-08-14 with `npx wrangler d1 list`: still `Authentication error [code: 10000]`.
@@ -227,6 +227,11 @@ Legend: ⬜ not started · 🔵 in progress · ✅ done · ⛔ blocked · 🔁 r
         and a blockout removing slots (§ H, 18 → 12)
   - [x] `docs/modules/04-scheduling-engine.md` filled from stub, per AGENTS.md
   - [x] `npm run db:types` regenerated in the same commit
+  - [x] Deployed (version `ef8323b2`) and **live-regression checked**: the four public routes 200,
+        all five authenticated routes 307 to `/login` signed out, branding still resolves hue 195
+        from the database. **3.1a has no UI, so its acceptance is demonstrated in psql against the
+        live project rather than on the deployed URL** — that is what the committed verification
+        is for, and 3.1b is where the deployed-URL acceptance returns.
 - [ ] 3.1b The editors — `/availability` (+ `/new`, `/[id]`, `/exceptions/*`), `/admin/blockouts/*`,
       `/admin/clinic`; the `nav.ts` Availability restoration; `ROUTE_PATTERNS` 32 → 42;
       `src/lib/clinic/time.ts`; `clockTime()`/`timezoneName()` validators; `Field` `type="time"`;
