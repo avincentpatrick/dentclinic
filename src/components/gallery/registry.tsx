@@ -1,7 +1,17 @@
 import { CalendarClock, Inbox } from "lucide-react";
 import { ErrorEmptyStateSpecimen } from "@/components/gallery/specimens/ErrorEmptyStateSpecimen";
+import { ToastSpecimen } from "@/components/gallery/specimens/ToastSpecimen";
+import { DuplicateWarning } from "@/components/patients/DuplicateWarning";
+import type { Confirmable } from "@/lib/forms/action-state";
 import { SubmitButton } from "@/components/shared/SubmitButton";
-import { ClinicalChip, StatusChip, CLINICAL_LEVELS, STATUS_KEYS } from "@/components/shared/StatusChip";
+import {
+  ClinicalChip,
+  RecordChip,
+  StatusChip,
+  CLINICAL_LEVELS,
+  RECORD_STATES,
+  STATUS_KEYS,
+} from "@/components/shared/StatusChip";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { DataTable, type Column } from "@/components/shared/DataTable";
 import { DataTableSkeleton } from "@/components/shared/DataTable.skeleton";
@@ -23,6 +33,40 @@ const PATIENT_COLUMNS: Column<DemoPatient>[] = [
   { id: "patient_number", header: "No.", cell: (p) => p.patient_number, card: "meta" },
   { id: "dob", header: "Date of birth", cell: (p) => p.dob, sortable: true, card: "meta" },
 ];
+
+/** Fixtures for DuplicateWarning. Invented people, and a fake ack. */
+const STAFF_CONFIRM: Confirmable = {
+  kind: "duplicate-patient",
+  title: "This may already be a patient",
+  detail:
+    "Open the existing record if this is the same person. Create a separate record only if you are sure it is someone else.",
+  existingHref: "/design-system#duplicate-warning",
+  proceedLabel: "Create a separate record",
+  matches: [
+    {
+      id: "1",
+      patientNumber: "P00001",
+      fullName: "Maria Santos",
+      reason: "Same email address and date of birth",
+      confidence: "certain",
+    },
+    {
+      id: "2",
+      patientNumber: "P00042",
+      fullName: "Maria Santos-Cruz",
+      reason: "Same mobile number",
+      confidence: "possible",
+    },
+  ],
+  ack: "0000000000000000000000000000dead",
+};
+
+const SELF_CONFIRM: Confirmable = {
+  kind: "duplicate-patient",
+  title: "Check your details",
+  detail: "Please make sure your name and date of birth are correct before continuing.",
+  ack: "0000000000000000000000000000beef",
+};
 import { PageHeader } from "@/components/shell/PageHeader";
 import { UserChipSkeleton } from "@/components/shell/UserChip.skeleton";
 import { Button } from "@/components/ui/button";
@@ -75,6 +119,17 @@ export const registry: GalleryEntry[] = [
           <div className="flex flex-wrap gap-2">
             {CLINICAL_LEVELS.map((l) => (
               <ClinicalChip key={l} level={l} />
+            ))}
+          </div>
+        ),
+      },
+      {
+        name: "Record states",
+        note: "RecordChip is a separate vocabulary from StatusChip: 'archived' is a property of the ROW, not of a visit. Neutral tokens — archiving is reversible and routine.",
+        render: () => (
+          <div className="flex flex-wrap gap-2">
+            {RECORD_STATES.map((s) => (
+              <RecordChip key={s} state={s} />
             ))}
           </div>
         ),
@@ -342,6 +397,49 @@ export const registry: GalleryEntry[] = [
     // importing. 07-contributing.md sanctions an empty specimen list with a
     // pointer to the live instance for exactly this case.
     specimens: [],
+  },
+  {
+    id: "toaster",
+    name: "Toaster",
+    group: "feedback",
+    doc: "docs/design-system/04-components/toaster.md",
+    description:
+      "Transient confirmation for a result you cannot see. Never the only path to an action it offers.",
+    specimens: [
+      {
+        name: "Archive toast with Undo",
+        note: "Undo here is a no-op fixture. A toast is a WCAG 2.2.1 time limit, so the live roster also reaches Restore from the archived row.",
+        render: () => <ToastSpecimen />,
+      },
+    ],
+  },
+  {
+    id: "duplicate-warning",
+    name: "DuplicateWarning",
+    group: "feedback",
+    doc: "docs/design-system/04-components/duplicate-warning.md",
+    description:
+      "The duplicate-patient soft stop. Its two modes are two shapes of Confirmable, not a prop.",
+    specimens: [
+      {
+        name: "Staff mode",
+        note: "Matches, a link out, and a way to proceed. The proceed button carries the ack as its own name/value — a hidden input would attach it to every submit.",
+        render: () => (
+          <form>
+            <DuplicateWarning confirm={STAFF_CONFIRM} />
+          </form>
+        ),
+      },
+      {
+        name: "Self mode",
+        note: "No proceedLabel ⇒ no matches, no link, no name, no way to continue. Enumeration-safety is in the type: the unsafe rendering is unreachable unless the action declared staff mode.",
+        render: () => (
+          <form>
+            <DuplicateWarning confirm={SELF_CONFIRM} />
+          </form>
+        ),
+      },
+    ],
   },
   {
     id: "search-field",

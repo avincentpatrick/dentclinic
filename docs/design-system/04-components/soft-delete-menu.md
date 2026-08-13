@@ -73,7 +73,15 @@ harmed; red here would misrepresent the stakes, the same reasoning
 <SoftDeleteMenu
   label={patient.full_name}
   archived={Boolean(patient.deleted_at)}
-  archiveAction={archivePatient.bind(null, patient.id)}
-  restoreAction={restorePatient.bind(null, patient.id)}
+  archiveAction={archivePatient.bind(null, patient.id, returnTo)}
+  restoreAction={restorePatient.bind(null, patient.id, returnTo)}
 />
 ```
+
+`returnTo` is the caller's current list URL, built server-side from the already-parsed roster
+params (`/patients?q=santos&page=2`). Binding it is what makes archiving return the user to
+the filtered page they were on instead of an unfiltered page 1 — and the action re-validates
+it before redirecting, because it is the one redirect target in the app that is not a literal.
+
+The props stay `() => Promise<void>`: `.bind` with extra arguments still produces exactly that
+signature.

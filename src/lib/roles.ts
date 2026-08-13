@@ -41,6 +41,10 @@ export const ROUTE_RULES: readonly RouteRule[] = [
   { prefix: "/home", roles: ["patient"] },
   { prefix: "/appointments", roles: ["patient"] },
   { prefix: "/records", roles: ["patient"] },
+  // Patients ONLY, not ALL_ROLES: /register calls claim_or_create_patient,
+  // a security definer RPC that creates a patient row for auth.uid(). A staff
+  // member reaching it would give their own login a chart.
+  { prefix: "/register", roles: ["patient"] },
   { prefix: "/profile", roles: ALL_ROLES },
 
   // Staff + doctor (+ superadmin).

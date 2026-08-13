@@ -1,11 +1,13 @@
 import { cva, type VariantProps } from "class-variance-authority";
 import {
+  Archive,
   Armchair,
   CalendarCheck2,
   CalendarClock,
   CalendarX2,
   CircleAlert,
   CircleCheck,
+  CircleDashed,
   ShieldCheck,
   TriangleAlert,
   UserX,
@@ -165,8 +167,59 @@ export function ClinicalChip({
   return <Chip meta={CLINICAL_META[level]} size={size} className={className} />;
 }
 
+/**
+ * Record lifecycle, NOT appointment status.
+ *
+ * A separate vocabulary rather than two more `StatusKey` values, for the same
+ * reason `ClinicalLevel` is separate: `STATUS_KEYS` drives the gallery loops and
+ * the a11y matrix and means "what is happening with this visit". "Archived" is
+ * a property of the row, and mixing the two would let `<StatusChip
+ * status="archived" />` render on a calendar cell.
+ *
+ * Neutral tokens on purpose. Archiving is reversible and routine — soft-delete
+ * has no colour of alarm to it, and `--destructive` next to a patient's name
+ * would misread as something being wrong with the patient.
+ */
+export type RecordState = "archived" | "provisional";
+
+export const RECORD_STATES: readonly RecordState[] = ["archived", "provisional"] as const;
+
+const RECORD_META: Record<RecordState, StatusMeta> = {
+  archived: {
+    label: "Archived",
+    Icon: Archive,
+    bg: "bg-muted",
+    fg: "text-muted-foreground",
+    ring: "ring-border",
+  },
+  provisional: {
+    label: "Provisional",
+    Icon: CircleDashed,
+    bg: "bg-muted",
+    fg: "text-muted-foreground",
+    ring: "ring-border",
+  },
+};
+
+/** Row lifecycle. Same chip + label + icon contract as StatusChip. */
+export function RecordChip({
+  state,
+  size,
+  className,
+}: {
+  state: RecordState;
+  size?: ChipSize;
+  className?: string;
+}) {
+  return <Chip meta={RECORD_META[state]} size={size} className={className} />;
+}
+
 export function statusLabel(status: StatusKey): string {
   return STATUS_META[status].label;
+}
+
+export function recordLabel(state: RecordState): string {
+  return RECORD_META[state].label;
 }
 
 export function clinicalLabel(level: ClinicalLevel): string {

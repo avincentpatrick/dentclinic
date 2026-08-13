@@ -91,6 +91,24 @@ into a Client Component and puts PHI in the browser's memory for no benefit.
 **Don't** render more than ~50 rows per page. There is no virtualisation and there should not
 be — pagination is the answer.
 
+## Three things the live roster had to get right
+
+1. **`sort` and `dir` must be in `params`.** The pagination links patch only `page`, so
+   anything missing from `params` is silently dropped on Next/Previous — you sort by date of
+   birth, turn the page, and land back on name order.
+2. **The query needs a stable tiebreaker** (`.order("id")` after the sort column). Two rows
+   that sort equal — two Maria Santoses, or any two null dobs — can otherwise appear on both
+   pages or on neither, because the database is free to order them differently per query.
+3. **The list query must filter soft-deleted rows itself.** Staff hold two permissive SELECT
+   policies on `patients` and permissive policies OR together, so the practical grant is every
+   row. See [soft-delete.md](../05-patterns/soft-delete.md).
+
+**No `loading.tsx` for a route whose page body writes an audit row.** Without Cache Components
+a dynamic route is not prefetched at all unless it has a loading boundary; adding one makes
+every row link prefetchable. `/patients` streams via `<Suspense>` inside the page instead. If
+a future phase adds one, `DataTable` needs a `prefetch?: boolean` prop *and* the read audit
+has to be re-verified.
+
 ## Example
 
 ```tsx

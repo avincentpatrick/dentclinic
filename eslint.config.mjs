@@ -39,7 +39,16 @@ const eslintConfig = defineConfig([
         {
           patterns: [
             {
-              group: ["@/lib/supabase/*", "**/lib/supabase/*", "@/app/actions/*"],
+              // @/lib/auth/* is on the list because it transitively pulls the
+              // Supabase server client — a specimen importing getActor would
+              // slip past a pattern list that only names lib/supabase.
+              group: [
+                "@/lib/supabase/*",
+                "**/lib/supabase/*",
+                "@/app/actions/*",
+                "@/lib/auth/*",
+                "**/lib/auth/*",
+              ],
               message:
                 "The /design-system gallery must render hard-coded fixtures only — never real data or server actions. See docs/design-system/06-accessibility.md.",
             },

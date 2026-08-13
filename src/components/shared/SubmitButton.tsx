@@ -33,6 +33,9 @@ export function SubmitButton({
   variant,
   className,
   disabled,
+  name,
+  value,
+  formAction,
 }: {
   idleLabel: string;
   pendingLabel: string;
@@ -40,12 +43,37 @@ export function SubmitButton({
   className?: string;
   /** For genuinely unavailable actions (e.g. no API key configured). */
   disabled?: boolean;
+  /**
+   * Submitter-scoped form data. A submit button's name/value reaches FormData
+   * ONLY when that button is the one that submitted — which is the entire
+   * mechanism behind the duplicate-warning ack (05-patterns/forms.md).
+   *
+   * A hidden input cannot do this job: it is submitted by every button in the
+   * form, so the primary "Create patient" would carry the ack too and silently
+   * skip the check it is supposed to re-run. Carrying it here means the primary
+   * button never acknowledges anything, and only the explicit "Create a
+   * separate record" does.
+   */
+  name?: string;
+  value?: string;
+  /**
+   * Overrides the enclosing form's action for THIS button only.
+   *
+   * How a multi-step form posts per step without a second <form>: each step's
+   * button carries its own `useActionState` action, and every button sees the
+   * whole FormData, so fields from an earlier step ride along as the very
+   * inputs the user typed into. See RegisterForm.
+   */
+  formAction?: (formData: FormData) => void;
 }) {
   const { pending } = useFormStatus();
 
   return (
     <Button
       type="submit"
+      name={name}
+      value={value}
+      formAction={formAction}
       variant={variant}
       disabled={pending || disabled}
       aria-busy={pending}

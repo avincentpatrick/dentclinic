@@ -76,6 +76,22 @@ submitted values back, and must never carry PHI.
 | `error` | ours | `InlineAlert` at form level |
 | `success` | — | redirect, or a toast |
 
+### `echo` is not politeness — the form depends on it
+
+**React resets an uncontrolled form to its `defaultValue` attributes when a form action
+completes.** That is precisely what makes echoing work: the round trip re-renders the inputs
+with what the user typed, and the reset lands on those values instead of on blanks.
+
+The corollary bites. A `success` that **stays on the page** and carries no `values` silently
+empties the form. `/register`'s step 1 shipped that way and was caught only on the deployed
+URL: step 1 returned a bare success, React blanked every step-1 field, the user was looking at
+step 2 and could not see it, and the final submit posted empty strings — so the form rejected
+their own name as missing.
+
+So `success` carries an optional `values`: **omit it when the action redirects** (nothing is
+left to re-render), **include it whenever the form stays put** — stay-put edits and wizard
+steps both.
+
 **`invalid` and `error` are deliberately different.** Collapsing them produces the familiar
 "your input was invalid" banner over a form with no field marked. One renders at the field
 where the fix is; the other apologises at form level.
@@ -102,16 +118,48 @@ and the user sees an unexplainable error.
 ## Confirmable warnings
 
 A `confirm` state is valid input that a human should look at first. Its `ack` is a **hash of
-the exact values the check ran against**, not a boolean flag, and it is echoed back as a
-server-rendered hidden input.
+the exact normalised values the check ran against**, not a boolean flag.
 
 That difference is the design: editing a field after seeing a warning changes the hash, so
 the ack no longer matches and the check re-runs. A boolean would let someone dismiss a warning
 about one patient and submit a record for another with the dismissal still attached.
 
-The ack is server-rendered as a hidden input rather than held in client state, which means it
-is submitted by the form itself and cannot drift from what is on screen. (It is not a no-JS
-affordance — see above; without JS the form does not submit at all.)
+### The ack rides on the proceed button, not a hidden input
+
+This doc said "hidden input" until 2.1d. **That was wrong, and building it would have disarmed
+the check.** A confirmable form has *two* submits — the primary one, and "Create a separate
+record" — and a hidden input is submitted by **every** button in the form. The primary "Create
+patient" would have carried the ack too, and silently skipped the re-check it exists to run.
+
+So the ack is the proceed button's own `name`/`value`
+([SubmitButton](../04-components/submit-button.md) takes both). A submit button's name/value
+reaches `FormData` only when *that* button submitted, which is what makes the two buttons mean
+different things:
+
+- **primary** — carries no ack, so the check *always* runs;
+- **proceed** — carries the ack minted for the values as rendered.
+
+Everything the hidden-input version promised still holds — server-rendered, cannot drift from
+what is on screen — and the re-check property gets *stronger*, because the primary button can
+never acknowledge anything. (Neither is a no-JS affordance: without JS the form does not
+submit at all.)
+
+The hashed inputs are exactly the probe's inputs — email, dob, last name, phone — plus the
+excluded row id, each normalised the way the SQL normalises it
+([ack.ts](../../../src/lib/forms/ack.ts)). Editing a field that is *not* a probe input, such
+as a first name, correctly does **not** re-run the check: the match is the same match.
+
+**The ack is not a MAC, deliberately.** The algorithm is public, so a determined client could
+mint one without ever seeing the warning. It carries integrity of *intent*, not authorization:
+forging one produces a duplicate row, which this schema explicitly tolerates (the
+`(email, dob)` index is non-unique on purpose) and which the same staff user could produce by
+pressing the button anyway. An HMAC would add a required platform secret whose absence becomes
+a new way for patient creation to break, and would protect nothing.
+
+### Fail closed
+
+If the probe itself errors, the action returns `status: "error"` and writes nothing. Writing a
+record because the safety check could not run is the one outcome that must not happen quietly.
 
 ## Inline or toast
 
@@ -138,6 +186,29 @@ from the archived row** — the toast is a convenience, not the only path.
 - **Privileged actions re-check the role inside the action.** Middleware gates navigation, not
   action ids — see AGENTS.md.
 - No draft autosave in Phase 2. Forms are ≤10 fields on one screen, `useActionState` preserves
-  values across the round trip, and `/register` posts per step. The first
+  values across the round trip, and `/register` posts per step (see below). The first
   [`useDraftSaver`](../../../src/lib/idle/drafts.ts) registrant is Phase 6.1's
   MedicalHistoryForm.
+
+## Multi-step forms: one `<form>`, one action per step
+
+`/register` is the only multi-step form in Phase 2, and "posts per step" means each step is
+validated by **its own server round trip** — not that each step writes to the database. There
+is exactly one write, at the end.
+
+The mechanism is one `<form>` with two submit buttons, each carrying its own `formAction` from
+its own `useActionState` hook. The inactive step's fields stay mounted behind the `hidden`
+**attribute**, which suppresses rendering but *not* submission — so step 1's values ride to the
+final POST as the very inputs the user typed into, rather than being copied into a parallel
+set of hidden inputs that could drift from what was on screen.
+
+Two rules follow:
+
+- **The final action re-validates every step.** "Step 1 already passed" is a claim the browser
+  makes; the values arrive from the client like any others.
+- **A rejected step-1 field must move the user back to step 1.** Otherwise the form reports a
+  failure against an input that is not on screen.
+
+Which step is showing is **adjusted during render** from the last action result, never
+synchronised in a `useEffect`. An effect commits the wrong screen first and corrects it after,
+which the user sees as a flash — and `react-hooks/set-state-in-effect` rejects it.

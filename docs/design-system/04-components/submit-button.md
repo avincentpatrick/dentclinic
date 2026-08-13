@@ -28,6 +28,27 @@ not optional here.
 | `variant` | Button variant | `default` | |
 | `disabled` | `boolean` | `false` | for genuinely unavailable actions (no API key configured), **not** for validation |
 | `className` | `string` | — | |
+| `name` / `value` | `string` | — | submitter-scoped form data — see below |
+| `formAction` | `(fd: FormData) => void` | — | overrides the form's action for this button only |
+
+### Two buttons, one form (Phase 2.1d)
+
+`name`/`value` and `formAction` exist for the same reason: a form can have more than one
+submit, and the two must be able to mean different things.
+
+**`name`/`value` reach `FormData` only when *that* button submitted.** That is the mechanism
+behind the duplicate-warning ack ([forms.md](../05-patterns/forms.md)): the ack rides on
+"Create a separate record", so the primary "Create patient" carries none and therefore always
+re-runs the check. A hidden input cannot do this — it is submitted by every button, which
+would silently disarm the primary one.
+
+**`formAction` lets each step of a multi-step form post to its own action** without a second
+`<form>`, so earlier steps' fields stay mounted (behind the `hidden` attribute) and ride along
+as the very inputs the user typed into. See `RegisterForm`.
+
+Note that `useFormStatus` is form-wide, so **every** `SubmitButton` in the form disables while
+any one of them is pending. That is the desired behaviour: a double submit on a patient create
+is two patients.
 
 ## States
 

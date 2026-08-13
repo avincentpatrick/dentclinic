@@ -77,7 +77,17 @@ export function parseFontPref(value: unknown): FontPref {
  * `/a/[token]` are patient-facing with no session at all, so a role check would
  * serve guest booking at 100%.
  */
-export const PATIENT_SURFACES = ["/home", "/appointments", "/records", "/book", "/a/"] as const;
+export const PATIENT_SURFACES = [
+  "/home",
+  "/appointments",
+  "/records",
+  "/book",
+  "/a/",
+  // Patient-only by ROUTE_RULES, so the pathname alone decides and this does
+  // not need SHARED_SURFACES. Omitting it would serve the one screen a brand
+  // new patient meets first at 100% text.
+  "/register",
+] as const;
 
 export function isPatientSurface(pathname: string): boolean {
   return PATIENT_SURFACES.some((p) => pathname === p || pathname.startsWith(p));

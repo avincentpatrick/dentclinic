@@ -32,13 +32,31 @@ union prop so the two vocabularies can never be passed to each other.
 | `watch` | CircleAlert | Watch |
 | `urgent` | TriangleAlert | Urgent |
 
+### `RecordChip` (Phase 2.1c)
+
+A third vocabulary, for the state of the **row** rather than of a visit or a diagnosis.
+
+| `state` | Icon | Label |
+|---|---|---|
+| `archived` | Archive | Archived |
+| `provisional` | CircleDashed | Provisional |
+
+Why not two more `StatusKey` values: `STATUS_KEYS` means "what is happening with this
+appointment" and drives the gallery loops and the a11y matrix. Folding "archived" in would
+make `<StatusChip status="archived" />` renderable on a calendar cell. Same reason
+`ClinicalLevel` is separate.
+
+**Neutral tokens** (`bg-muted` / `text-muted-foreground` / `ring-border`), not a warning
+colour. Archiving is reversible and routine — and a coloured chip beside a patient's name
+reads as something being wrong with the *patient*, not with the record.
+
 Sizes: `sm` (h-6, dense tables and calendar cells) and `md` (h-7, default).
 
 ## Props
 
 | Prop | Type | Default |
 |---|---|---|
-| `status` / `level` | `StatusKey` / `ClinicalLevel` | required |
+| `status` / `level` / `state` | `StatusKey` / `ClinicalLevel` / `RecordState` | required |
 | `size` | `"sm" \| "md"` | `"md"` |
 | `className` | `string` | — |
 

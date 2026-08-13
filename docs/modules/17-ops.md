@@ -105,6 +105,45 @@ Two related traps, both hit once:
   until a local `npm ci`. `scripts/refresh-lock.mjs` uses `--package-lock-only` precisely to
   avoid this; do not drop that flag.
 
+## Generated database types
+
+`src/lib/supabase/database.types.ts` is generated, committed, and threaded through both
+Supabase client helpers and the middleware's inline client.
+
+**Regenerate with `npm run db:types` in the same commit as any migration.** A stale file is
+worse than none: it type-checks against a schema that no longer exists, so the compiler
+confidently approves a column that was renamed. It earned its place immediately — adding the
+generic surfaced a real looseness in `savePreferences`, which was building its upsert payload
+with `theme?: string` instead of the enum.
+
+The script shells out via `npx --yes supabase@latest` because the CLI is not a project
+dependency (it is a ~40 MB binary used a few times a phase).
+
+## Build and test parallelism scale with memory, not cores
+
+Two settings, one cause, and both were mistaken for flakiness first:
+
+- `experimental.memoryBasedWorkersCount` in `next.config.ts`
+- a free-memory-derived `workers` in `playwright.config.ts`
+
+Next defaults its page-data worker pool to `os.cpus().length - 1` and Playwright defaults to
+50% of cores; **neither looks at memory**. On this 22-core dev box that is 18 build workers and
+11 Chromium instances. With the machine otherwise busy, both die as
+`FATAL ERROR: Zone Allocation failed` / `worker process exited unexpectedly` — the same
+Windows abort code `3221226505` (0xC0000409) in both cases.
+
+The symptoms mislead in a specific way worth remembering. The build reports the OOM *per
+worker at a ~26 MB heap*, which reads like a Next bug rather than the machine refusing to
+commit 18 more processes. The test run fails **all 30 tests at once**, which reads like an
+accessibility regression. And because both track whatever else is running, they look
+intermittent — which is exactly how PROGRESS.md's 2026-08-13 note describes attributing the
+build crash to a component after a single passing sample.
+
+Capping to a constant would throttle a machine with room to spare, so both scale: the build
+gets `max(min(cpus, freeGB), 4)`, the tests `max(2, min(4, freeGB / 1.5))`. Capping the test
+run did not even cost wall clock — 30 tests went from a crashing 48 s at 11 workers to a green
+19 s at 2, because the thrashing was the slow part.
+
 **`shadcn` is a build dependency, not just a CLI.** `src/app/globals.css:3` does
 `@import "shadcn/tailwind.css"`, so removing it from `devDependencies` does not merely cost
 you the `add` command — every page 500s with `Can't resolve 'shadcn/tailwind.css'`. It looks

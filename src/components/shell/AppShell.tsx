@@ -5,6 +5,7 @@ import { BottomTabBar } from "@/components/shell/BottomTabBar";
 import { IdleTimeoutGuard } from "@/components/shell/IdleTimeoutGuard";
 import { UserChip } from "@/components/shell/UserChip";
 import { UserChipSkeleton } from "@/components/shell/UserChip.skeleton";
+import { Toaster } from "@/components/shared/Toaster";
 import { CommandKProvider } from "@/components/search/CommandKProvider";
 import { AppearanceMenu } from "@/components/theme/AppearanceMenu";
 import { getBranding } from "@/lib/branding";
@@ -65,6 +66,10 @@ export async function AppShell({ role, children }: { role: AppRole; children: Re
 
         <BottomTabBar role={role} />
         <IdleTimeoutGuard idleMs={IDLE_MS[role]} warnMs={IDLE_WARN_MS} />
+        {/* Mounted here rather than in the root layout: /login, /book and
+            /settings/appearance have no toasts and should not pay for the
+            chunk. Every signed-in surface goes through this shell. */}
+        <Toaster />
       </div>
     </CommandKProvider>
   );

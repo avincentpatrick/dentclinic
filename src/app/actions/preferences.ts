@@ -9,6 +9,16 @@ import {
   parseFontPref,
   parseTheme,
 } from "@/lib/appearance";
+import type { Database } from "@/lib/supabase/database.types";
+
+/**
+ * Derived from the generated Insert type rather than re-declared as `string`,
+ * so `theme_pref` / `font_size_pref` gaining a value is a type error here
+ * instead of a runtime 22P02 on an enum that no longer matches.
+ */
+type PreferencePatch = Partial<
+  Pick<Database["public"]["Tables"]["user_preferences"]["Insert"], "theme" | "font_size">
+>;
 
 /**
  * Persist appearance preferences: cookie always, DB when signed in.
@@ -24,7 +34,7 @@ import {
  */
 export async function savePreferences(formData: FormData) {
   const jar = await cookies();
-  const patch: { theme?: string; font_size?: string } = {};
+  const patch: PreferencePatch = {};
 
   const theme = formData.get("theme");
   if (theme !== null) {

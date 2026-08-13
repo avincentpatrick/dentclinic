@@ -1,6 +1,7 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { isAllowed, isPublicPath, roleHome, type AppRole } from "@/lib/roles";
+import type { Database } from "@/lib/supabase/database.types";
 import {
   APPEARANCE_COOKIE_OPTIONS,
   FONT_COOKIE,
@@ -40,7 +41,7 @@ export async function middleware(request: NextRequest) {
   // auth tokens whenever a refresh coincided with a redirect.
   const pending: { name: string; value: string; options?: CookieOptions }[] = [];
 
-  const supabase = createServerClient(
+  const supabase = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
