@@ -227,11 +227,46 @@ an "Other". `is_default` was considered and cut: it needs a partial unique index
 to swap atomically and a form field, for something Phase 7 gets free by preselecting the first
 row by `sort_order`.
 
+### `public.clinic_schedule` view + `public.update_clinic_schedule` (Phase 3.1a, migration 0016)
+
+The **second** public door into `private.settings`, holding `timezone`, `lead_time_min` and
+`horizon_days` — the three values `get_available_slots` reads at query time. Owned by
+[`04-scheduling-engine.md`](04-scheduling-engine.md); recorded here because this module owns the
+settings table and its access pattern.
+
+**A second view rather than three more columns on `clinic_branding`**, and 0014's own header is
+why: *"If a third non-branding key ever lands here, rename it then."* Three land at once, and
+renaming `clinic_branding` would touch every branding call site plus the Phase 9 manifest for
+keys the landing page does not want. The rule that matters — *never `select *`, only named
+non-secret keys* — is kept in both.
+
+**The write path is `update_clinic_schedule(text, integer, integer)`**, following the same rule
+as `update_clinic_branding`: *the allow-list is the signature.* The timezone is validated
+against `pg_timezone_names` rather than a regex, because that is the tzdata the engine will
+actually use, and an unrecognised zone is a 500 on the booking path rather than a wrong value.
+
+**A revoke that is load-bearing, not decorative.** Measured on this project: Supabase's default
+privileges grant **ALL** on every new relation in `public` — views included — to `anon`,
+`authenticated` and `service_role`. A `create view` is therefore anon-readable *before any grant
+is written*, so `grant select … to authenticated` alone would have been decoration on an open
+door. `0016` revokes first. `clinic_schedule` is deliberately **not** granted to `anon`: Phase 4
+opens it and `get_available_slots` together, because either alone is half a door.
+
+*(For the record, `clinic_branding` carries those same default INSERT/UPDATE/DELETE grants for
+`anon`. They are inert — a view over `private.settings` with no `INSTEAD OF` trigger cannot be
+written — so this is untidiness rather than exposure, but it is why the 0016 revoke is written
+the way it is.)*
+
 ### `private.settings` keys seeded so far
 `setup_superadmin_email` (0002, self-deleting), `clinic_name`, `brand_hue` (0004),
-`currency` (0013).
+`currency` (0013), and **`timezone` / `lead_time_min` / `horizon_days` (0016**, seeded
+`Asia/Manila` / 120 / 60 — PLAN's values**)**.
 `tagline` and `logo_url` are **writable but not seeded** — absent until first saved, which is
 why the view leaves those two uncoalesced.
+
+`cancel_window_hours` is in PLAN's list and is deliberately **not** seeded: nothing reads it
+until Phase 4 cancellation, and 0013's `currency` is the standing lesson about seeding a key
+with no reader.
 
 **`currency` forced a small correction in 0014.** 0013 seeded the key because an amount with no
 currency is not money — and then nothing could read it: `private` is revoked from

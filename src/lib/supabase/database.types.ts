@@ -62,6 +62,179 @@ export type Database = {
         }
         Relationships: []
       }
+      availability_exceptions: {
+        Row: {
+          created_at: string
+          deleted_at: string | null
+          deleted_by: string | null
+          end_time: string | null
+          exception_date: string
+          id: string
+          is_closed: boolean
+          provider_id: string
+          reason: string | null
+          start_time: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          end_time?: string | null
+          exception_date: string
+          id?: string
+          is_closed?: boolean
+          provider_id: string
+          reason?: string | null
+          start_time?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          end_time?: string | null
+          exception_date?: string
+          id?: string
+          is_closed?: boolean
+          provider_id?: string
+          reason?: string | null
+          start_time?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "availability_exceptions_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      availability_rules: {
+        Row: {
+          created_at: string
+          deleted_at: string | null
+          deleted_by: string | null
+          effective_from: string
+          effective_to: string | null
+          end_time: string
+          id: string
+          note: string | null
+          operatory_id: string | null
+          provider_id: string
+          start_time: string
+          updated_at: string
+          weekday: number
+        }
+        Insert: {
+          created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          effective_from: string
+          effective_to?: string | null
+          end_time: string
+          id?: string
+          note?: string | null
+          operatory_id?: string | null
+          provider_id: string
+          start_time: string
+          updated_at?: string
+          weekday: number
+        }
+        Update: {
+          created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          effective_from?: string
+          effective_to?: string | null
+          end_time?: string
+          id?: string
+          note?: string | null
+          operatory_id?: string | null
+          provider_id?: string
+          start_time?: string
+          updated_at?: string
+          weekday?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "availability_rules_operatory_id_fkey"
+            columns: ["operatory_id"]
+            isOneToOne: false
+            referencedRelation: "operatories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "availability_rules_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      blockouts: {
+        Row: {
+          color: Database["public"]["Enums"]["appointment_color"]
+          created_at: string
+          deleted_at: string | null
+          deleted_by: string | null
+          ends_at: string
+          id: string
+          label: string
+          operatory_id: string | null
+          provider_id: string | null
+          schedulable_over: boolean
+          starts_at: string
+          updated_at: string
+        }
+        Insert: {
+          color?: Database["public"]["Enums"]["appointment_color"]
+          created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          ends_at: string
+          id?: string
+          label: string
+          operatory_id?: string | null
+          provider_id?: string | null
+          schedulable_over?: boolean
+          starts_at: string
+          updated_at?: string
+        }
+        Update: {
+          color?: Database["public"]["Enums"]["appointment_color"]
+          created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          ends_at?: string
+          id?: string
+          label?: string
+          operatory_id?: string | null
+          provider_id?: string | null
+          schedulable_over?: boolean
+          starts_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blockouts_operatory_id_fkey"
+            columns: ["operatory_id"]
+            isOneToOne: false
+            referencedRelation: "operatories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "blockouts_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       feedback_reports: {
         Row: {
           body: string
@@ -515,6 +688,14 @@ export type Database = {
         }
         Relationships: []
       }
+      clinic_schedule: {
+        Row: {
+          horizon_days: number | null
+          lead_time_min: number | null
+          timezone: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       claim_or_create_patient: {
@@ -553,17 +734,41 @@ export type Database = {
           phone: string
         }[]
       }
+      get_available_slots: {
+        Args: {
+          p_appointment_type_id: string
+          p_from: string
+          p_operatory_id?: string
+          p_provider_id?: string
+          p_to: string
+        }
+        Returns: {
+          operatory_id: string
+          provider_id: string
+          slot_end: string
+          slot_start: string
+        }[]
+      }
       jwt_role: { Args: never; Returns: string }
       log_read: {
         Args: { p_entity: string; p_entity_id?: string; p_patient_id?: string }
         Returns: undefined
       }
+      my_provider_id: { Args: never; Returns: string }
       update_clinic_branding: {
         Args: {
           p_brand_hue: number
           p_clinic_name: string
           p_logo_url?: string
           p_tagline?: string
+        }
+        Returns: undefined
+      }
+      update_clinic_schedule: {
+        Args: {
+          p_horizon_days: number
+          p_lead_time_min: number
+          p_timezone: string
         }
         Returns: undefined
       }

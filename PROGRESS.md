@@ -4,9 +4,10 @@ Legend: ⬜ not started · 🔵 in progress · ✅ done · ⛔ blocked · 🔁 r
 
 ## Snapshot
 
-- **Current phase:** 2 — Patients, lookups, settings, email (2.0 ✅ · 2.1a–d ✅ · 2.2a ✅ · 2.2b ✅ · **2.2c ⛔ deferred** · 2.2d ✅ → next: **Phase 3, scheduling engine**)
+- **Current phase:** 3 — Scheduling engine (**3.1a ✅ data layer + verification** → next: **3.1b, the editors**)
+  - Phase 2 closed: 2.0 ✅ · 2.1a–d ✅ · 2.2a ✅ · 2.2b ✅ · **2.2c ⛔ deferred** · 2.2d ✅ · 2.2e closed by the 2.2d log entry
 - **Deployed URL:** https://dentclinic.dentclinic-appointment-and-recording-system.workers.dev
-- **Supabase:** dentclinic `csslnpmjprfuzofomtda` (ap-southeast-1, dedicated account) — migrations **0001–0015** applied
+- **Supabase:** dentclinic `csslnpmjprfuzofomtda` (ap-southeast-1, dedicated account) — migrations **0001–0016** applied
 - **Repo:** github.com/avincentpatrick/dentclinic — **PUBLIC since 2026-08-13** (to unblock Actions; see 17-ops.md for what that changed)
 - **CI:** green end to end. Worker **1.31 MB** gzip (43.6% of 3 MB). 32 a11y tests + **42 authenticated-route tests** (`npm run test:authed`, opt-in), 32 routes.
 - **Brand hue:** 195 (teal-cyan), live from `clinic_branding` — now editable **from `/admin/branding`**, proven on the deployed URL
@@ -110,9 +111,9 @@ Legend: ⬜ not started · 🔵 in progress · ✅ done · ⛔ blocked · 🔁 r
   - [x] `/feedback` (all roles, in `(shared)`), `/admin/feedback` + `/admin/feedback/[id]` triage; `FeedbackStatusChip`/`FeedbackSeverityChip` reusing already-swept tokens; two `layouts` gallery entries
   - [x] `check:routes` extended to **nav.ts hrefs** and to the `ROUTE_PATTERNS`↔`AppRoutes` set-equality; all four arms negative-tested. It found `/availability` linked from the doctor sidebar with no page behind it — live, and the same bug as `/admin` in 2.2a
   - [x] **Live acceptance 27/27 on the deployed URL** — filed from a real patient chart, stored as `/patients/[id]`, triaged new → in_progress, exactly one audit row carrying only the status keys, no email anywhere
-- [ ] 2.2e close
+- [x] 2.2e close ✅ — closed by the 2026-08-14 (a) session-log entry; no separate increment
 
-### Decisions this phase (do not re-litigate)
+### Decisions in Phase 2 (do not re-litigate)
 
 1. **`unique(email, dob)` → a NON-unique index.** Deviates from PLAN.md:47. `merged_into_id` and the deferred merge queue both presuppose duplicates can exist; twins sharing a parent's email are real; and a 23505 at the front desk is unrecoverable. The warning is server-side instead.
 2. **`DataTable` is not TanStack.** Server-side sort/filter/page removes its row models entirely; it would cost ~14 KB in *both* bundles and force a Client Component. The roster ships **zero client JS**.
@@ -213,9 +214,198 @@ Legend: ⬜ not started · 🔵 in progress · ✅ done · ⛔ blocked · 🔁 r
     without ever reaching the constraint. **A write assertion is only an assertion when the
     actor can write.** The same family as decision 25's always-truthy `goto`.
 
+## Phase 3 — Scheduling engine
+
+- [x] 3.1a Data layer + committed verification ✅
+  - [x] Migration **0016** — `availability_rules`, `availability_exceptions`, `blockouts`, the
+        three schedule settings (`timezone`/`lead_time_min`/`horizon_days`) behind a new
+        `public.clinic_schedule` view + `update_clinic_schedule` RPC, `public.my_provider_id()`,
+        and **`public.get_available_slots`**
+  - [x] **`supabase/verify/0016-scheduling.sql` — 135/135 green**, written and run before any UI
+        exists, committed and re-runnable, ending in `ROLLBACK`
+  - [x] **Both named acceptance criteria demonstrated inside it**: the DST week (§ J, 12 checks)
+        and a blockout removing slots (§ H, 18 → 12)
+  - [x] `docs/modules/04-scheduling-engine.md` filled from stub, per AGENTS.md
+  - [x] `npm run db:types` regenerated in the same commit
+- [ ] 3.1b The editors — `/availability` (+ `/new`, `/[id]`, `/exceptions/*`), `/admin/blockouts/*`,
+      `/admin/clinic`; the `nav.ts` Availability restoration; `ROUTE_PATTERNS` 32 → 42;
+      `src/lib/clinic/time.ts`; `clockTime()`/`timezoneName()` validators; `Field` `type="time"`;
+      the **`layouts` gallery-group split**; authed-suite additions + the doctor fixture role
+- [ ] 3.2 Appointments + both EXCLUDE constraints + visit_status + FullCalendar + accept/refer
+
+### Decisions in Phase 3 (do not re-litigate)
+
+32. **A DST test written against the clinic's own timezone is an assertion that cannot fail.**
+    Asia/Manila has observed no DST since 1978 — measured, zero non-24-hour days in a 400-day
+    sweep, and asserted as check J1 rather than remembered. PLAN's named acceptance criterion for
+    3.1 is "correct slots across a DST test week", so the verification points the clinic at
+    **America/New_York** inside its rolled-back transaction and keeps a Manila arm as the
+    regression guard for the default install. Same family as decision 25's always-truthy `goto`
+    and decision 31's write assertion by an actor who could not write.
+
+    **This is also why the timezone had to become a setting in 3.1a rather than 3.1b.** A
+    hardcoded `'Asia/Manila'` in `get_available_slots` makes the acceptance criterion literally
+    unwritable. The three keys PLAN names — `timezone`, `lead_time_min`, `horizon_days` — existed
+    in prose and in the `/admin` "Clinic details" card's description, and in **no migration**.
+
+33. **The DST dates are COMPUTED from tzdata, not written down.** `pg_temp.next_dst_transitions()`
+    finds the next 23-hour and 25-hour local days and the section asserts they are Sundays before
+    using them. A hardcoded `2027-03-14` works until that date passes, at which point it falls
+    outside the booking horizon, the engine correctly returns nothing, every assertion compares
+    zero to zero, and the file reports a green DST test it has stopped performing. Derivation is
+    strictly stronger: it proves the zone genuinely transitions instead of assuming the US rule.
+
+34. **The slot walk steps INSTANTS, never wall-clock times.** Convert each day's window to
+    `timestamptz` once with `at time zone`, then `generate_series(…, interval '10 minutes')`. The
+    natural-looking alternative — step in local minutes and convert each candidate — is broken,
+    measured: on a spring-forward Sunday it produces **24 candidates but only 18 distinct
+    instants**, because Postgres maps a non-existent local time forward and 02:30 and 03:30 are
+    *the same instant*. Six duplicate slots, two offers for one chair, no constraint violated,
+    and the appointment simply double-sold.
+
+    **Fall-back semantics are wall-clock and chosen, not inherited:** `at time zone` resolves an
+    ambiguous local time to the second (standard-time) occurrence, so the repeated hour is
+    offered once and the clinic works its posted hours. Asserted, so that "fixing" it into
+    elapsed-time semantics fails the file.
+
+35. **A stored generated column is computed BEFORE check constraints — so both ranges are
+    expressions, not columns.** `blockouts.during` and `availability_rules.minute_range` were both
+    written as generated columns first. Legal (`tstzrange`/`int4range` over columns are IMMUTABLE
+    — measured), and both wrong: an end earlier than its start raised the range constructor's own
+    `22000 range lower bound must be less than or equal to range upper bound`, and the named CHECK
+    **never fired**. That is a sentence no clinician should see and a sqlstate carrying no
+    constraint name for `src/app/actions` to map to a field. As an EXCLUDE element / index
+    expression the range is built at index-insertion time, after `ExecConstraints`, so the named
+    `23514` wins. Caught by checks D1 and D8. **3.2 inherits the trap** — `appointments.time_range`
+    is the same shape.
+
+    Settled at the same time, closing the question 0012 parked: **`timestamptz + interval` is
+    STABLE**, so PLAN's `time_range … GENERATED` will be rejected outright and 3.2 must build the
+    range from two plain `timestamptz` columns.
+
+36. **`get_available_slots` ships WITHOUT an appointment-conflict arm, and a tripwire enforces
+    saying so.** `appointments` is 3.2, so a slot today means "the clinic is open", not "this time
+    is free". Check **A17** asserts `public.appointments` does not exist **and** that the
+    function's comment still says `INCOMPLETE UNTIL 3.2` — so the file goes red the moment 3.2
+    creates the table, and the warning cannot outlive the condition it warns about. Decision 25
+    says a check that cannot fail is worse than no check; a warning that cannot notice it has been
+    addressed is the same bug wearing a hat. Negative-tested by creating a stub `appointments`
+    table in a rolled-back transaction and confirming A17 goes red.
+
+37. **Supabase default-grants ALL on every new relation in `public` to `anon`, views included.**
+    Measured on this project (`pg_default_acl`, objtype `r`), and demonstrated: a bare
+    `create view public._probe as select 1;` arrives with
+    `has_table_privilege('anon', …, 'select') = true`. So on a new public view **the revoke is the
+    load-bearing line and the grant is decoration**. `clinic_schedule` therefore does
+    `revoke all … from anon, authenticated;` before granting `select` to `authenticated`, and is
+    deliberately not opened to `anon` — Phase 4 opens it and `get_available_slots` together,
+    because either alone is half a door. Check A12, negative-tested by granting `anon` SELECT back
+    and confirming it goes red.
+
+38. **Blockouts carry nullable `provider_id` and `operatory_id`, where NULL means all.** An
+    extension of PLAN's column list ("named, colored, tstzrange, schedulable_over"), not a renamed
+    variant, so it stays inside AGENTS.md's rule. One table then covers "closed for Christmas"
+    (both null), "Dr. Cruz at a congress" and "Op 2 out for repair"; without them a multi-day
+    absence becomes N exception rows and a chair out of service is unrepresentable. The NULL logic
+    in the engine is load-bearing and commented at the call site: a chair-scoped blockout must
+    **not** remove slots from a chair-agnostic rule, because that provider can use another chair.
+
+39. **The overlap EXCLUDE makes RESTORE fallible, which no archive/restore pair in this repo has
+    been before.** The constraint is partial on `deleted_at is null`, so archiving a rule always
+    succeeds but restoring one can raise `23P01` if a live rule has taken its place (check E9).
+    That is correct — the alternative is two live overlapping rules — but 3.1b's restore action
+    must turn it into a sentence rather than letting an exclusion violation reach a doctor.
+
+40. **The Playwright worker floor drops from 2 to 1, and the second worker was buying six
+    seconds.** `playwright.config.ts` has scaled workers by free memory since 2.1d (decision 9)
+    with a floor of 2, and that floor silently assumes ~3 GB free. On a box with **1.19 GB** it
+    orders two Chromium instances the OS cannot supply, and the run dies with exactly the
+    `worker process exited unexpectedly (code=3221226505)` + `Target crashed` signature the
+    config's own comment describes — four failures that read as an a11y regression while nothing
+    in `src/` had changed. Measured back to back on the same build:
+
+    | workers | free memory | result |
+    |---|---|---|
+    | 2 | 1.19 GB | **4 failed, 28 passed** (OOM) |
+    | 1 | 1.19 GB | **32 passed, 2.0m** |
+    | 2 | more headroom (earlier the same session) | 32 passed, 1.9m |
+
+    So parallelism here is worth **six seconds** and costs a false failure whenever the machine is
+    busy. The floor existed to keep the value off zero — `1` does that — and was never a claim
+    that two browsers always fit. Same lesson the config already carries one line up: *a gate that
+    fails on memory pressure is a gate that gets ignored*, and the 2026-08-13 note about
+    attributing an intermittent native crash to a component after a single sample.
+
 ## Session log (newest first)
 
-- 2026-08-14: **Phase 2.2d — the gate that was missing, and then the module.** Built in that
+- 2026-08-14 (b): **Phase 3.1a — the scheduling engine's data layer, and a DST test that can
+  actually fail.** Migration 0016 plus `supabase/verify/0016-scheduling.sql`, **135/135 green**,
+  written and run before a single component exists. No UI at all: both of PLAN's named acceptance
+  criteria for 3.1 are data-layer facts, so they are demonstrated *inside* the verification —
+  § J is the DST week, § H is a blockout taking 18 slots down to 12.
+  The increment turned on something worth stating plainly: **PLAN's DST acceptance criterion was
+  unwritable as specified.** Asia/Manila has observed no DST since 1978 — measured, zero
+  non-24-hour days in a 400-day sweep — so a "DST test week" in the clinic's own zone compares
+  zero to zero and reports green. That is decision 25's always-truthy `goto` with a calendar
+  attached. The fix has two halves: the verification points the clinic at **America/New_York**
+  inside its rolled-back transaction (with a Manila arm proving the default install is
+  unaffected), and **the timezone had to become a real setting in 3.1a rather than 3.1b**,
+  because a hardcoded `'Asia/Manila'` in `get_available_slots` makes the test impossible to
+  write. `timezone`, `lead_time_min` and `horizon_days` existed in PLAN's prose and in the
+  `/admin` "Clinic details" card, and in **no migration**; they ship here behind a second
+  definer-rights view, `clinic_schedule`, because 0014's own header said to open a new door
+  rather than widen `clinic_branding` when a third non-branding key arrived. The dates are
+  **computed from tzdata**, not written down — a hardcoded 2027-03-14 works until it doesn't,
+  and then fails open.
+  **The engine's one real design decision is that the slot walk steps instants, not wall-clock
+  times**, and the naive version is not hypothetical: measured, a spring-forward Sunday yields
+  **24 candidates but only 18 distinct instants**, because Postgres maps a non-existent local
+  time forward and 02:30 and 03:30 are the same moment. Six duplicate offers for one chair, no
+  constraint violated. Converting each window's endpoints once and stepping `interval '10
+  minutes'` over `timestamptz` is DST-correct by construction and needs no filter.
+  **Writing the verification first paid for itself four times.** It caught that a stored
+  generated column is computed *before* CHECK constraints — so `blockouts.during` and
+  `minute_range` were both raising `22000 range lower bound must be less than or equal to range
+  upper bound` while the named constraints never fired, giving a clinician a sentence about range
+  bounds and the app a sqlstate with no field to attach to. Both became index/EXCLUDE expressions.
+  It caught that **Supabase default-grants ALL on every new relation in `public` to `anon`,
+  views included** — proven with a bare `create view … as select 1` — so `clinic_schedule` was
+  anon-readable before any grant was written and the revoke, not the grant, is the load-bearing
+  line. It caught six wrong slot counts. And **check L5 failed while the thing it checks was
+  fine**: the "before" settings were stashed in transaction-scoped GUCs that the rollback
+  discarded, so it compared `Asia/Manila` against `NULL` — the same family as 0015's
+  "create the helpers before `begin`".
+  Ten checks were negative-tested by failing first during the writing; two more were
+  negative-tested deliberately, because they are the ones most likely to rot quietly: **A12**
+  (grant `anon` SELECT back → red) and **A17, the 3.2 tripwire**, which asserts
+  `public.appointments` does not exist *and* that `get_available_slots`' comment still says
+  `INCOMPLETE UNTIL 3.2`. Creating a stub `appointments` table turns it red, which is the point:
+  the function ships without an appointment-conflict arm, a slot today means "the clinic is open"
+  and not "this time is free", and the warning cannot outlive the condition it warns about.
+  Also settled, closing the question 0012 parked for Phase 3: **`timestamptz + interval` is
+  STABLE**, so PLAN's `time_range … GENERATED` will be rejected outright and 3.2 must build the
+  range from two plain `timestamptz` columns.
+  **Two process failures on the gate itself, both already recorded in this repo and both repeated
+  anyway.** The first `npm run verify` was piped through `tail`, which **masked the exit code** —
+  it reported success while the OpenNext build had died with `pageAlloc: out of memory`. And the
+  a11y suite then failed four tests with `code=3221226505` / `Target crashed`, which reads as an
+  a11y regression and was the OS refusing to start a second browser on a box with 1.19 GB free.
+  Proven rather than assumed by re-running the same build single-worker: **32 passed**. The
+  worker floor drops from 2 to 1 (decision 40) — measured, the second worker was worth six
+  seconds. NEXT: **3.1b — the editors.** `/availability` (+ `/new`, `/[id]`, `/exceptions/*`),
+  `/admin/blockouts/*` and `/admin/clinic`; restore the `nav.ts` Availability item **in the same
+  commit as the page and the `ROUTE_PATTERNS` entry**, because `check:routes` asserts all three
+  against each other; extract `src/lib/clinic/time.ts` out of `patients/format.ts` (the third
+  caller, and `CLINIC_TZ`'s "settings-driven from 2.2b" comment has been false for two phases);
+  add `clockTime()`/`timezoneName()` validators and `Field`'s `type="time"`; **split the
+  `layouts` gallery group** — it is at seven compositions and took 35.7s on Pixel 7 this run
+  against a 90s ceiling the spec's own comment says not to raise again; and add the authed-suite
+  routes plus a **doctor** fixture role, since the `(staff)` layout's doctor branch has existed
+  since 1.2 and no test has ever rendered it. **Open scope question for 3.1b:** `providers` has
+  had no admin screen since 0005, so on a fresh install nothing links a login to a provider row
+  and `/availability` renders an empty state for everyone — either `/admin/lookups/providers`
+  joins 3.1b (~250 lines copied from operatories) or the acceptance runbook carries a SQL step.
+- 2026-08-14 (a): **Phase 2.2d — the gate that was missing, and then the module.** Built in that
   order deliberately: 2.2b shipped six 500ing routes and an unlinked hub past a fully green
   `npm run verify`, so the first thing this session produced was the authenticated-route
   fixture `06-accessibility.md` has carried as "the tracked next step" since 2.2a — and the

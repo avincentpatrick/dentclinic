@@ -66,14 +66,26 @@ export default defineConfig({
    * intermittent native crash to a component after one sample. A gate that
    * fails on memory pressure is a gate that gets ignored.
    *
-   * So it is scaled by FREE MEMORY with a floor of 2 and a ceiling of 4 —
-   * roughly 1.5 GB per Chromium, which is what the crashes measured. The suite
-   * is ~30 short tests, so even 2 workers finishes in about a minute; there is
-   * nothing to buy by pushing it higher. Same shape as
+   * So it is scaled by FREE MEMORY with a ceiling of 4 — roughly 1.5 GB per
+   * Chromium, which is what the crashes measured. Same shape as
    * `experimental.memoryBasedWorkersCount` in next.config.ts, for the same
    * reason.
+   *
+   * THE FLOOR IS 1, NOT 2, SINCE 3.1a — and the change is the paragraph above
+   * being taken at its word. A floor of 2 assumes ~3 GB free; on a box with
+   * 1.19 GB it hands the OS an order it cannot fill, so the run died with
+   * exactly the 3221226505 / "Target crashed" signature described above while
+   * the code was fine. Measured on that build, back to back:
+   *
+   *   2 workers, 1.19 GB free -> 4 failed, 28 passed   (OOM, reads as a11y regression)
+   *   1 worker,  1.19 GB free -> 32 passed, 2.0m
+   *
+   * and the earlier green run at 2 workers with more headroom took 1.9m. So the
+   * second worker buys SIX SECONDS and costs a false failure whenever the box
+   * is busy. The floor existed to keep the value off zero, which `1` does; it
+   * was never a claim that two browsers always fit.
    */
-  workers: Math.max(2, Math.min(4, Math.floor(os.freemem() / 1.5e9))),
+  workers: Math.max(1, Math.min(4, Math.floor(os.freemem() / 1.5e9))),
   webServer: {
     command: "node scripts/serve-standalone.mjs",
     // A public route, so readiness is an unambiguous 200 rather than a redirect.
