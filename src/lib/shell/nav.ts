@@ -94,6 +94,13 @@ export const SIDEBAR_NAV: Record<AppRole, NavGroup[]> = {
       id: "settings",
       label: "Settings",
       items: [
+        // /profile is granted to ALL_ROLES (roles.ts) and increment 2.0 did
+        // explicit work — the (shared) group, SHARED_SURFACES, the x-role header
+        // — to make it role-correct. Until 2.2b only the patient tab bar linked
+        // to it, so for staff-side roles it was a route deliberately made
+        // correct with no way to reach it. Here rather than in the tab bars,
+        // which are already at their five-item cap.
+        { kind: "link", id: "profile", label: "My profile", href: "/profile", icon: User, match: "prefix", phase: 2 },
         { kind: "link", id: "appearance", label: "Appearance", href: "/settings/appearance", icon: Palette, match: "prefix" },
       ],
     },
@@ -110,6 +117,7 @@ export const SIDEBAR_NAV: Record<AppRole, NavGroup[]> = {
       id: "settings",
       label: "Settings",
       items: [
+        { kind: "link", id: "profile", label: "My profile", href: "/profile", icon: User, match: "prefix", phase: 2 },
         { kind: "link", id: "appearance", label: "Appearance", href: "/settings/appearance", icon: Palette, match: "prefix" },
       ],
     },
@@ -128,6 +136,7 @@ export const SIDEBAR_NAV: Record<AppRole, NavGroup[]> = {
       id: "settings",
       label: "Settings",
       items: [
+        { kind: "link", id: "profile", label: "My profile", href: "/profile", icon: User, match: "prefix", phase: 2 },
         { kind: "link", id: "appearance", label: "Appearance", href: "/settings/appearance", icon: Palette, match: "prefix" },
       ],
     },

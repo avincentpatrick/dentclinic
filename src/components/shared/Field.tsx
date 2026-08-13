@@ -52,6 +52,12 @@ export type FieldProps = Common &
         inputMode?: "text" | "email" | "tel" | "numeric" | "decimal";
         min?: string | number;
         max?: string | number;
+        /**
+         * Spinner increment only. Forms carry `noValidate`, so this never
+         * enforces anything — the validator does. It exists so the arrows on a
+         * duration field move in 10-minute steps rather than 1.
+         */
+        step?: string | number;
         options?: never;
         rows?: never;
       }
@@ -242,6 +248,7 @@ export function Field(props: FieldProps) {
           inputMode={props.inputMode}
           min={props.min}
           max={props.max}
+          step={props.step}
           className={CONTROL}
           {...a11y}
         />

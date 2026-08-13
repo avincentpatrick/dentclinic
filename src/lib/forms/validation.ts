@@ -191,6 +191,88 @@ export function intInRange(min: number, max: number, label: string): Validator<n
 }
 
 /**
+ * Minutes in, 10-minute UNITS out.
+ *
+ * The database stores counts of 10-minute increments (AGENTS.md); clinicians
+ * think in minutes. **This is the only place in the system where the two meet,
+ * and nothing else multiplies or divides by 10.**
+ *
+ * NON-MULTIPLES ARE REJECTED, NEVER ROUNDED. Silently turning 45 into 50 leaves
+ * a clinic with a schedule five minutes wrong on every appointment of that type
+ * and nothing to tell them — the same reasoning that makes the duplicate-patient
+ * check a warning rather than a silent merge. The message names the two nearest
+ * valid values rather than saying "must be a multiple of 10", because the user
+ * should not have to do the arithmetic to find out what to type.
+ *
+ * Bounds are in UNITS and must mirror the CHECK constraints in migration 0012
+ * exactly: when a form and its table disagree, the database rejects what the
+ * form accepted and the error has no field to attach itself to.
+ */
+export function tenMinuteUnits(opts: {
+  label: string;
+  minUnits: number;
+  maxUnits: number;
+  required?: boolean;
+}): Validator<number> {
+  return (raw) => {
+    const v = (raw ?? "").trim();
+    if (!v) {
+      return opts.required === false ? ok(0) : err(`${opts.label} is required.`);
+    }
+    if (!/^\d+$/.test(v)) return err(`${opts.label} must be a whole number of minutes.`);
+
+    const minutes = Number(v);
+    if (minutes % 10 !== 0) {
+      const low = Math.floor(minutes / 10) * 10;
+      const high = low + 10;
+      return err(
+        low === 0
+          ? `${opts.label} must be in 10-minute steps — try ${high}.`
+          : `${opts.label} must be in 10-minute steps — try ${low} or ${high}.`,
+      );
+    }
+
+    const units = minutes / 10;
+    if (units < opts.minUnits || units > opts.maxUnits) {
+      return err(
+        `${opts.label} must be between ${opts.minUnits * 10} and ${opts.maxUnits * 10} minutes.`,
+      );
+    }
+    return ok(units);
+  };
+}
+
+/**
+ * A money amount, as a number.
+ *
+ * Regex-first and never `parseFloat` on arbitrary input: `parseFloat("12abc")`
+ * is 12 and `parseFloat("1,500")` is 1, both silently. A price that quietly
+ * becomes a different price is a billing defect, so anything that is not plainly
+ * a decimal is refused.
+ *
+ * Two decimal places, matching `numeric(12,2)` in migration 0013 — a third would
+ * be rounded by the database, which is a value the user did not type.
+ */
+export function money(opts: {
+  label: string;
+  max?: number;
+  required?: boolean;
+}): Validator<number | null> {
+  const max = opts.max ?? 9_999_999_999.99;
+  return (raw) => {
+    const v = (raw ?? "").trim().replace(/^[₱$]/, "").trim();
+    if (!v) return opts.required === false ? ok(null) : err(`${opts.label} is required.`);
+    if (!/^\d{1,10}(\.\d{1,2})?$/.test(v)) {
+      return err(`${opts.label} must be an amount like 1500 or 1500.50.`);
+    }
+    const n = Number(v);
+    if (!Number.isFinite(n) || n < 0) return err(`${opts.label} cannot be negative.`);
+    if (n > max) return err(`${opts.label} is too large.`);
+    return ok(n);
+  };
+}
+
+/**
  * A URL that will be rendered in an `<img src>`.
  *
  * `https:` ONLY, deliberately not the obvious `https?:`. The app is served over

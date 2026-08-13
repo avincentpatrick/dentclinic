@@ -63,6 +63,7 @@ independent reasons, one shape; copy it rather than putting a file input in an a
 | `as` | `"input" \| "textarea" \| "select" \| "checkbox" \| "file"` | `"input"` | discriminates the rest of the props |
 | `accept` | `string` | — | `as="file"` only; a MIME allow-list, mirrored server-side |
 | `onChange` | `ChangeEventHandler` | — | `as="file"` only, client-only — a Server Component cannot pass it |
+| `step` | `string \| number` | — | `type="number"` only. **Spinner increment only** — `noValidate` means it enforces nothing; the validator does. Added in 2.2b so duration arrows move in 10-minute steps |
 | `hint` | `string` | — | rendered before the error, both referenced by `aria-describedby` |
 | `error` | `string` | — | from `errorsOf(state)[name]` |
 | `required` | `boolean` | `false` | renders "(required)" and `aria-required`; **advisory only** — see below |

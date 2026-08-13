@@ -14,6 +14,187 @@ export type Database = {
   }
   public: {
     Tables: {
+      appointment_types: {
+        Row: {
+          color: Database["public"]["Enums"]["appointment_color"]
+          created_at: string
+          deleted_at: string | null
+          deleted_by: string | null
+          description: string | null
+          duration_units: number
+          id: string
+          name: string
+          patient_bookable: boolean
+          post_buffer_units: number
+          pre_buffer_units: number
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          color?: Database["public"]["Enums"]["appointment_color"]
+          created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          description?: string | null
+          duration_units: number
+          id?: string
+          name: string
+          patient_bookable?: boolean
+          post_buffer_units?: number
+          pre_buffer_units?: number
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          color?: Database["public"]["Enums"]["appointment_color"]
+          created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          description?: string | null
+          duration_units?: number
+          id?: string
+          name?: string
+          patient_bookable?: boolean
+          post_buffer_units?: number
+          pre_buffer_units?: number
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      lookup_categories: {
+        Row: {
+          created_at: string
+          deleted_at: string | null
+          deleted_by: string | null
+          description: string | null
+          id: string
+          key: string
+          label: string
+          sort_order: number
+          updated_at: string
+          value_kind: Database["public"]["Enums"]["lookup_value_kind"]
+        }
+        Insert: {
+          created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          description?: string | null
+          id?: string
+          key: string
+          label: string
+          sort_order?: number
+          updated_at?: string
+          value_kind?: Database["public"]["Enums"]["lookup_value_kind"]
+        }
+        Update: {
+          created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          description?: string | null
+          id?: string
+          key?: string
+          label?: string
+          sort_order?: number
+          updated_at?: string
+          value_kind?: Database["public"]["Enums"]["lookup_value_kind"]
+        }
+        Relationships: []
+      }
+      lookup_values: {
+        Row: {
+          amount: number | null
+          category_id: string
+          code: string | null
+          created_at: string
+          deleted_at: string | null
+          deleted_by: string | null
+          id: string
+          is_system: boolean
+          label: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          amount?: number | null
+          category_id: string
+          code?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          id?: string
+          is_system?: boolean
+          label: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          amount?: number | null
+          category_id?: string
+          code?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          id?: string
+          is_system?: boolean
+          label?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lookup_values_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "lookup_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      operatories: {
+        Row: {
+          created_at: string
+          default_provider_id: string | null
+          deleted_at: string | null
+          deleted_by: string | null
+          id: string
+          is_hygiene: boolean
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          default_provider_id?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          id?: string
+          is_hygiene?: boolean
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          default_provider_id?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          id?: string
+          is_hygiene?: boolean
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operatories_default_provider_id_fkey"
+            columns: ["default_provider_id"]
+            isOneToOne: false
+            referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patients: {
         Row: {
           address: string | null
@@ -247,6 +428,7 @@ export type Database = {
         Row: {
           brand_hue: number | null
           clinic_name: string | null
+          currency: string | null
           logo_url: string | null
           tagline: string | null
         }
@@ -322,7 +504,17 @@ export type Database = {
     }
     Enums: {
       app_role: "patient" | "doctor" | "staff" | "superadmin"
+      appointment_color:
+        | "teal"
+        | "indigo"
+        | "violet"
+        | "sky"
+        | "emerald"
+        | "amber"
+        | "rose"
+        | "slate"
       font_size_pref: "auto" | "standard" | "comfortable" | "large" | "xlarge"
+      lookup_value_kind: "label" | "money"
       patient_sex: "female" | "male" | "other" | "undisclosed"
       theme_pref: "light" | "dark" | "system"
     }
@@ -453,7 +645,18 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["patient", "doctor", "staff", "superadmin"],
+      appointment_color: [
+        "teal",
+        "indigo",
+        "violet",
+        "sky",
+        "emerald",
+        "amber",
+        "rose",
+        "slate",
+      ],
       font_size_pref: ["auto", "standard", "comfortable", "large", "xlarge"],
+      lookup_value_kind: ["label", "money"],
       patient_sex: ["female", "male", "other", "undisclosed"],
       theme_pref: ["light", "dark", "system"],
     },

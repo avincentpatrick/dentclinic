@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getActor, getStaffActor } from "@/lib/auth/actor";
 import { duplicateAck } from "@/lib/forms/ack";
+import { safeReturn } from "@/lib/forms/return-to";
 import { echo, parseForm } from "@/lib/forms/validation";
 import { PATIENT_FIELDS, patientSchema, type PatientField } from "@/lib/patients/schema";
 import type { ActionState, Confirmable, DuplicateMatch } from "@/lib/forms/action-state";
@@ -223,22 +224,9 @@ export async function updatePatient(
   return { status: "success", message: "Changes saved.", values };
 }
 
-/**
- * `returnTo` comes from the caller, so it is re-validated here even though Next
- * encrypts and signs bound action arguments. It is the only redirect target in
- * the app that is not a literal, and "//evil.example" is a protocol-relative URL
- * that a naive check would wave through.
- */
-function safeReturn(returnTo: string, extra: Record<string, string> = {}): string {
-  const base =
-    returnTo.startsWith("/patients") && !returnTo.startsWith("//") ? returnTo : "/patients";
-  const [path, qs = ""] = base.split("?");
-  const params = new URLSearchParams(qs);
-  params.delete("undo");
-  for (const [k, val] of Object.entries(extra)) params.set(k, val);
-  const out = params.toString();
-  return out ? `${path}?${out}` : path;
-}
+/** Scoped to /patients — see src/lib/forms/return-to.ts for why it exists. */
+const returnToRoster = (returnTo: string, extra: Record<string, string> = {}) =>
+  safeReturn(returnTo, "/patients", extra);
 
 export async function archivePatient(id: string, returnTo: string): Promise<void> {
   // Nothing to render a message into — SoftDeleteMenu's props return void — so
@@ -257,7 +245,7 @@ export async function archivePatient(id: string, returnTo: string): Promise<void
 
   revalidatePath("/patients");
   revalidatePath(`/patients/${id}`);
-  redirect(safeReturn(returnTo, { undo: id }));
+  redirect(returnToRoster(returnTo, { undo: id }));
 }
 
 export async function restorePatient(id: string, returnTo: string): Promise<void> {
@@ -279,7 +267,7 @@ export async function restorePatient(id: string, returnTo: string): Promise<void
   // No toast on restore: the row visibly rejoins the active roster (or leaves
   // the Archived filter), and forms.md only sanctions a toast when the result
   // is NOT visible on the current view.
-  redirect(safeReturn(returnTo));
+  redirect(returnToRoster(returnTo));
 }
 
 /**

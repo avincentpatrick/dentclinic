@@ -98,3 +98,12 @@ styling" is carried at view level — an `InlineAlert` banner on the Archived vi
   into the default view.
 - Do not cascade. Archiving a patient does not archive their appointments — history stays
   legible, and the appointment's own list filters on its own `deleted_at`.
+- **Some rows are renameable but not archivable, and the database says so.** Since 2.2b,
+  `lookup_values.is_system` marks entries the code reads by name — Phase 4.2 derives the no-show
+  metric from a specific cancel reason, and every picker needs an "Other". A same-row CHECK
+  (`lookup_values_system_not_archivable`) refuses the archive, and the list renders a plain
+  "Built-in" marker where the row menu would be. **Offer the affordance or explain its absence —
+  never render a menu whose action the database will reject.**
+- **No `is_active` column, ever.** `deleted_at` already means "no longer offered". Two
+  overlapping liveness concepts on one table is how a scheduler starts booking ghosts
+  (`supabase/migrations/0005_patients.sql`, on `providers`).

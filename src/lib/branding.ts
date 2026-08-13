@@ -4,6 +4,7 @@ import { createAnonClient } from "@/lib/supabase/anon";
 import {
   DEFAULT_BRAND_HUE,
   DEFAULT_CLINIC_NAME,
+  DEFAULT_CURRENCY,
   normalizeHue,
   type Branding,
 } from "@/lib/settings/branding-schema";
@@ -57,7 +58,7 @@ export const BRANDING_TAG = "clinic-branding";
  */
 const BRANDING_REVALIDATE_S = 3600;
 
-export { DEFAULT_BRAND_HUE, DEFAULT_CLINIC_NAME, normalizeHue };
+export { DEFAULT_BRAND_HUE, DEFAULT_CLINIC_NAME, DEFAULT_CURRENCY, normalizeHue };
 export type { Branding };
 
 const FALLBACK: Branding = {
@@ -65,6 +66,7 @@ const FALLBACK: Branding = {
   tagline: null,
   logoUrl: null,
   brandHue: DEFAULT_BRAND_HUE,
+  currency: DEFAULT_CURRENCY,
 };
 
 /** One read of the view. Returns null on ANY failure — see `cachedBranding`. */
@@ -73,7 +75,7 @@ async function fetchBranding(): Promise<Branding | null> {
     const supabase = createAnonClient();
     const { data, error } = await supabase
       .from("clinic_branding")
-      .select("clinic_name, tagline, logo_url, brand_hue")
+      .select("clinic_name, tagline, logo_url, brand_hue, currency")
       .single();
 
     if (error || !data) return null;
@@ -83,6 +85,7 @@ async function fetchBranding(): Promise<Branding | null> {
       tagline: data.tagline ?? null,
       logoUrl: data.logo_url ?? null,
       brandHue: normalizeHue(data.brand_hue),
+      currency: data.currency ?? DEFAULT_CURRENCY,
     };
   } catch {
     return null;

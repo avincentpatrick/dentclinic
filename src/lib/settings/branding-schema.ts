@@ -32,11 +32,21 @@ export const BRAND_HUE_MAX = 359;
 export const DEFAULT_BRAND_HUE = 195;
 export const DEFAULT_CLINIC_NAME = "DentClinic";
 
+export const DEFAULT_CURRENCY = "PHP";
+
 export type Branding = {
   clinicName: string;
   tagline: string | null;
   logoUrl: string | null;
   brandHue: number;
+  /**
+   * Added to the view in 0014. Not branding in the strict sense, but
+   * `clinic_branding` is the sanctioned public door into `private.settings` for
+   * non-secret display values, and 0013 seeded a `currency` key that nothing
+   * could otherwise read. The fees and products screens need it to say what
+   * "1500" means. See the migration header.
+   */
+  currency: string;
 };
 
 /** Mirrors migration 0011's bucket configuration. Kept in step by hand. */

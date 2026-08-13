@@ -60,6 +60,14 @@ bypass route.
 What the group **proves**: heading order, contrast and layout of the assembled page, across
 both themes and all four font steps, on every `npm run test:a11y`.
 
+> **A trap for anyone writing browser-driven checks against these forms.**
+> Playwright's `fill()` on a **React uncontrolled `<textarea>` with a `defaultValue`** *prepends*
+> rather than replaces: the field ends up holding the typed text followed by the old value, and a
+> save then stores the concatenation. It cost real time during the 2.2b acceptance run because
+> the symptom — "the save reports success but the wrong value is in the database" — looks exactly
+> like a product bug. `fill()` on a plain `<input>` is fine, and click → select-all → `type()` on
+> the same textarea stores exactly what was typed. **Use select-all + type for textareas.**
+
 What it **does not prove**: the real data path; row menus, whose props are server actions
 (which is why the `SoftDeleteMenu` entry has no specimens); and the authenticated shell
 around the page. A real auth fixture (service-role `generateLink` → `storageState`, skipped

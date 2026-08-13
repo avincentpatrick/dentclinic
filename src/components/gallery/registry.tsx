@@ -1,6 +1,9 @@
 import { CalendarClock, Inbox } from "lucide-react";
 import { AdminSectionGrid } from "@/components/admin/AdminSectionGrid";
 import { ADMIN_SECTIONS } from "@/lib/admin/sections";
+import { ListToolbar } from "@/components/lookups/ListToolbar";
+import { AppointmentTypeFields } from "@/components/lookups/AppointmentTypeFields";
+import { ProfileFields } from "@/components/patients/ProfileFields";
 import { BrandingFormSpecimen } from "@/components/gallery/specimens/BrandingFormSpecimen";
 import { ErrorEmptyStateSpecimen } from "@/components/gallery/specimens/ErrorEmptyStateSpecimen";
 import { ToastSpecimen } from "@/components/gallery/specimens/ToastSpecimen";
@@ -71,6 +74,48 @@ const SELF_CONFIRM: Confirmable = {
   detail: "Please make sure your name and date of birth are correct before continuing.",
   ack: "0000000000000000000000000000beef",
 };
+
+/** Fixtures for the lookups layout specimens. Invented rows, never real ones. */
+type DemoType = {
+  id: string;
+  name: string;
+  duration: string;
+  buffers: string;
+  total: string;
+  booking: string;
+  archived?: boolean;
+};
+
+const TYPE_ROWS: DemoType[] = [
+  { id: "1", name: "Adult Recall + Prophy", duration: "50 min", buffers: "—", total: "50 min", booking: "Patients + staff" },
+  { id: "2", name: "Emergency", duration: "30 min", buffers: "+0 / +10", total: "40 min", booking: "Patients + staff" },
+  { id: "3", name: "Crown Prep", duration: "1 h 30 min", buffers: "—", total: "90 min", booking: "Staff only" },
+  { id: "4", name: "Teeth whitening", duration: "40 min", buffers: "—", total: "40 min", booking: "Staff only", archived: true },
+];
+
+const TYPE_COLUMNS: Column<DemoType>[] = [
+  {
+    id: "name",
+    header: "Name",
+    sortable: true,
+    card: "title",
+    cell: (r) => (
+      <span className="flex flex-wrap items-center gap-2">
+        <span className="font-medium">{r.name}</span>
+        {r.archived && <RecordChip state="archived" />}
+      </span>
+    ),
+  },
+  { id: "duration", header: "Duration", sortable: true, card: "meta", cell: (r) => r.duration },
+  { id: "buffers", header: "Buffers", card: "detail", cell: (r) => r.buffers },
+  {
+    id: "total",
+    header: "Total block",
+    card: "detail",
+    cell: (r) => <span className={r.buffers === "—" ? undefined : "font-medium"}>{r.total}</span>,
+  },
+  { id: "booking", header: "Booking", card: "meta", cell: (r) => r.booking },
+];
 import { PageHeader } from "@/components/shell/PageHeader";
 import { UserChipSkeleton } from "@/components/shell/UserChip.skeleton";
 import { Button } from "@/components/ui/button";
@@ -646,6 +691,146 @@ export const registry: GalleryEntry[] = [
       {
         name: "Saved",
         render: () => <BrandingFormSpecimen state="success" />,
+      },
+    ],
+  },
+  {
+    id: "lookup-list",
+    name: "Lookups list screen",
+    group: "layouts",
+    doc: "docs/modules/02-clinic-settings.md",
+    description:
+      "The shape every /admin/lookups list shares: PageHeader, ListToolbar, DataTable. Row menus are omitted — SoftDeleteMenu's props are server actions, which a specimen may not import.",
+    specimens: [
+      {
+        name: "Appointment types",
+        note: "Includes an archived row. The Total block column is the point: buffers are invisible everywhere else.",
+        render: () => (
+          <div>
+            <PageHeader
+              title="Appointment types"
+              description="What can be booked, how long it takes, and the chair time around it."
+            />
+            <ListToolbar
+              action="/design-system"
+              searchLabel="Search appointment types"
+              searchPlaceholder="Name"
+              query=""
+              archived={false}
+              activeHref="/design-system#lookup-list"
+              archivedHref="/design-system#lookup-list"
+              archivedNotice="Nothing here is deleted."
+            />
+            <div className="mt-4">
+              <DataTable
+                columns={TYPE_COLUMNS}
+                rows={TYPE_ROWS}
+                rowKey={(r) => r.id}
+                caption="Appointment types"
+                baseHref="/design-system"
+                params={{}}
+                sort={{ by: "name", dir: "asc" }}
+                page={{ index: 0, size: 25, total: TYPE_ROWS.length }}
+                empty={<EmptyState register="first-use" icon={CalendarClock} title="None yet" />}
+              />
+            </div>
+          </div>
+        ),
+      },
+    ],
+  },
+  {
+    id: "lookup-form",
+    name: "Lookups form screen",
+    group: "layouts",
+    doc: "docs/modules/02-clinic-settings.md",
+    description:
+      "AppointmentTypeFields inside a plain <form> with no action. Seeded with an invalid duration so the 10-minute rejection message goes through the whole matrix.",
+    specimens: [
+      {
+        name: "With a rejected duration",
+        note: "Non-multiples of 10 are rejected, never rounded — a schedule five minutes wrong per appointment with nobody told is the worse outcome.",
+        render: () => (
+          <div>
+            <PageHeader
+              title="Add appointment type"
+              description="Durations are in 10-minute steps, because the scheduler works on a 10-minute grid."
+            />
+            {/* No `action` prop: a function cannot cross the Server Component
+                boundary, and a specimen may not import one anyway. */}
+            <form noValidate className="mt-6 flex flex-col gap-6">
+              <AppointmentTypeFields
+                values={{
+                  name: "Teeth whitening",
+                  duration_minutes: "45",
+                  pre_buffer_minutes: "0",
+                  post_buffer_minutes: "10",
+                  patient_bookable: "",
+                  color: "violet",
+                  sort_order: "100",
+                }}
+                errors={{ duration_minutes: "Duration must be in 10-minute steps — try 40 or 50." }}
+              />
+              <div>
+                <SubmitButton idleLabel="Add type" pendingLabel="Saving…" />
+              </div>
+            </form>
+          </div>
+        ),
+      },
+    ],
+  },
+  {
+    id: "profile-screen",
+    name: "Profile screen",
+    group: "layouts",
+    doc: "docs/modules/03-patients.md",
+    description:
+      "The /profile composition: the always-present account summary, then the editable details. Email is read-only text rather than a disabled input — changing it belongs to the verified sign-in flow.",
+    specimens: [
+      {
+        name: "Patient with a record",
+        render: () => (
+          <div>
+            <PageHeader title="Profile" description="Your account and the details the clinic holds." />
+            <section aria-labelledby="specimen-account" className="flex flex-col gap-3">
+              <h2 id="specimen-account" className="text-base font-medium text-foreground">
+                Your account
+              </h2>
+              <dl className="grid gap-3 rounded-xl bg-card p-4 ring-1 ring-border sm:grid-cols-2">
+                <div>
+                  <dt className="text-sm text-muted-foreground">Email address</dt>
+                  <dd className="text-base break-words text-foreground">maria.santos@example.com</dd>
+                </div>
+                <div>
+                  <dt className="text-sm text-muted-foreground">Role</dt>
+                  <dd className="text-base text-foreground">Patient</dd>
+                </div>
+                <div>
+                  <dt className="text-sm text-muted-foreground">Patient number</dt>
+                  <dd className="text-base text-foreground">P00001</dd>
+                </div>
+              </dl>
+            </section>
+            <form noValidate className="mt-6 flex flex-col gap-6">
+              <ProfileFields
+                values={{
+                  first_name: "Maria",
+                  last_name: "Santos",
+                  dob: "1990-05-04",
+                  phone: "0917 123 4567",
+                  sex: "female",
+                  address: "12 Mabini St, Quezon City",
+                  marketing_opt_in: "on",
+                }}
+                errors={{}}
+              />
+              <div>
+                <SubmitButton idleLabel="Save my details" pendingLabel="Saving…" />
+              </div>
+            </form>
+          </div>
+        ),
       },
     ],
   },

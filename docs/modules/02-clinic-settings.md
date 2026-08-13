@@ -137,10 +137,112 @@ Migration 0011 creates the public `branding` bucket: 1 MiB limit, PNG/JPEG/WebP 
   referenced-objects query and a cron, for a handful of files a decade. Phase 5's pg_cron can
   sweep it if it ever matters.
 
+### `public.appointment_types` (Phase 2.2b, migration 0012)
+
+`name`, `description`, **`duration_units`**, **`pre_buffer_units`**, **`post_buffer_units`**,
+`patient_bookable`, `color` (`appointment_color` enum), `sort_order`, plus timestamps and the
+soft-delete pair.
+
+**Units are counts of 10 minutes, never minutes.** Minutes exist in exactly one place in the
+whole system — the `tenMinuteUnits` validator — and nothing else multiplies or divides by 10.
+
+**How the buffers compose.** No formula existed anywhere in the repo before 2.2b; PLAN.md names
+the columns and the EXCLUDE constraints but never how one becomes the other. This is it:
+
+```
+time_range = tstzrange(
+  starts_at - pre_buffer_units * interval '10 minutes',
+  starts_at + (duration_units + post_buffer_units) * interval '10 minutes',
+  '[)')
+```
+
+`starts_at` is when the *patient* is seen; pre extends the block before (set-up, anaesthetic
+onset), post after (turnover, disinfection). **`'[)'` is not optional** — two `'[]'` ranges
+sharing an endpoint overlap, so back-to-back booking would be impossible.
+
+Two consequences that constrain **Phase 3.2** rather than this table:
+
+1. **A stored generated column may reference only its own row**, so `appointments.time_range`
+   can never read `appointment_types`. 3.2 must **copy** the three unit counts onto the
+   appointment at booking. That is also correct behaviour, not a workaround: re-timing "Crown
+   Prep" from 90 to 100 minutes must not move appointments already booked — at best that fails
+   an unrelated UPDATE against the EXCLUDE constraint, at worst it moves a patient's slot with
+   nobody told. The type is a *template*; the appointment records what was agreed.
+2. **`timestamptz + interval` is STABLE, not IMMUTABLE**, so the expression above may simply be
+   rejected in a `generated always as (…) stored` column. Verify with
+   `select provolatile from pg_proc where proname = 'timestamptz_pl_interval';` before writing
+   3.2. Nothing in 2.2b depends on the answer.
+
+`color` stores **palette keys, not colours** — an enum, so the generated TypeScript hands the
+form a union for free, and a hex from a form can never reach a style attribute. **No colour
+tokens ship in 2.2b**: the admin UI shows the name as text (which is what a screen reader gets
+either way), and the tokens land in 3.2 with the calendar that first renders them.
+
+RLS **splits reads by role**, unlike `providers`: `patient_bookable` is a *rule*, not a filter,
+so it lives in the policy and a forgotten `.eq()` in a Phase 4 query cannot leak a type the
+clinic does not offer for self-booking.
+
+### `public.operatories` (Phase 2.2b, migration 0012)
+
+`name`, `sort_order`, `default_provider_id → providers(id)`, `is_hygiene`. Staff-side read only:
+a patient picks a service, a provider and a time; which chair they sit in is the clinic's
+business. `providers` shipped early in 0005 precisely so this FK had something to point at.
+
+### `public.lookup_categories` / `public.lookup_values` (Phase 2.2b, migration 0013)
+
+**Four categories, not PLAN.md:68's five.** `services` is omitted deliberately: a service a
+patient books **is** an `appointment_type` — chair time with a duration, buffers, a colour and a
+bookable flag. A second list called "services" would carry a name and nothing else, and the two
+would drift the first time a clinic renamed one. Anything priced but not booked is a `fee` or a
+`product` line. Recorded in the same register as 0005's deliberate deviation from
+`unique(email, dob)`.
+
+**Categories are seed-only, structurally rather than by convention**: no INSERT grant, no INSERT
+policy, and a BEFORE UPDATE trigger pinning `key`, `value_kind` and `deleted_at`. The application
+reads values *by category key*, so a renamed or archived category is not a configuration choice —
+it is an empty picker in front of someone trying to cancel an appointment, three phases from
+here, with no error anywhere. The clinic may rename the **label** (white-label), reorder, and
+edit every value.
+
+**Money is a first-class `amount numeric(12,2)`, never the generic text column.** A fee parsed
+out of text — or held as a float — in a billing path is a defect, not a shortcut. Plus a stable
+`code`, so a clinic renaming "GCash" to "G-Cash" does not split a year of payment totals across
+two report rows, and Phase 6's `procedures.code` has a join key.
+
+**Where this shape runs out — flagged, not solved.** A real fee schedule needs effective dates, a
+code system, and often per-tooth or per-surface variation. This table has one amount and no
+history. It survives v1 **only** because `invoice_items.unit_fee` is a *copied* value
+(PLAN.md:62), so re-pricing never rewrites an issued invoice — the same denormalisation argument
+as appointment durations. When Phase 7 needs more, `fee` graduates to its own table and the
+category is retired. **Do not grow `lookup_values` sideways to meet it.** See
+[11-billing.md](11-billing.md).
+
+**No `is_active` on any of these tables.** It duplicates `deleted_at` and contradicts the
+precedent set for `providers` in 0005: *"two overlapping liveness concepts on one table is how a
+scheduler starts booking ghosts."* Archived **is** "no longer offered".
+
+`is_system` rows (`no_show`, `other`) are renameable but **not** archivable — a same-row CHECK,
+because Phase 4.2 derives the no-show metric from a specific reason code and every picker needs
+an "Other". `is_default` was considered and cut: it needs a partial unique index, a definer RPC
+to swap atomically and a form field, for something Phase 7 gets free by preselecting the first
+row by `sort_order`.
+
 ### `private.settings` keys seeded so far
-`setup_superadmin_email` (0002, self-deleting), `clinic_name`, `brand_hue` (0004).
+`setup_superadmin_email` (0002, self-deleting), `clinic_name`, `brand_hue` (0004),
+`currency` (0013).
 `tagline` and `logo_url` are **writable but not seeded** — absent until first saved, which is
 why the view leaves those two uncoalesced.
+
+**`currency` forced a small correction in 0014.** 0013 seeded the key because an amount with no
+currency is not money — and then nothing could read it: `private` is revoked from
+`authenticated`, and `clinic_branding` projected only the four branding keys, so the fees screen
+had no way to say what "1500" meant. A seeded setting with no reader is the "unused column
+somebody later assumes is maintained" smell, and a hardcoded `"PHP"` in the UI would have been
+two sources of truth. 0014 adds it to the view instead: `clinic_branding` is already the
+sanctioned public door for non-secret display settings, and the rule that matters — *never
+`select *`, only named non-secret keys* — is kept. The view's name is now slightly narrower than
+its contents; renaming it would touch every branding call site and the Phase 9 manifest for no
+behavioural gain, so the name stays and this note is the record.
 
 ## Screens (routes)
 - `/settings/appearance` — theme + text size ([page](../../src/app/settings/appearance/page.tsx)).
@@ -157,7 +259,16 @@ why the view leaves those two uncoalesced.
   [BrandingForm](../design-system/04-components/branding-form.md). Seeded from
   `getBrandingFresh()`, never the cached read: a form seeded from a shared cache entry writes
   stale values back over a colleague's save.
-- Phase 2.2b: `/admin/lookups`. Phase 2.2c: `/admin/email`.
+- **`/admin/lookups`** (2.2b) — a hub with child routes:
+  `/appointment-types`, `/operatories`, and a dynamic `/[category]`, each with `/new` and
+  `/[id]`. Four mechanical reasons for children rather than one page of sections: `SearchField`
+  re-emits every *other* search param as a hidden input, so two lists on one page means typing in
+  one box carries the other's cursor; `SearchField` takes a single `action` path; `DataTable`'s
+  pagination patches only `page`, so two paginators fight over it; and a dynamic `[category]`
+  means a category seeded in a future migration gets an admin screen with **no route work**.
+  There is deliberately no separate detail page — a lookup row has six fields, no history and no
+  read audit, so it would be a click for nothing.
+- Phase 2.2c: `/admin/email`.
 
 **No ROUTE_RULES change was needed for either page** — `{ prefix: "/admin", roles: ["superadmin"] }`
 already covers everything beneath it, and `npm run check:routes` proves that rather than
@@ -195,7 +306,25 @@ the route table stays non-enumerable.
    each `npm run check`, with a pessimistic luminance model. A "safe hues" list in the UI
    would be an unproven second opinion about something already proven.
 8. **Clinic-wide settings are configuration, not PHI**: reads are unaudited, writes are
-   audited with `action = 'settings_change'`.
+   audited with `action = 'settings_change'`. The same holds for lookups — **no `logRead` on any
+   `/admin/lookups` screen**. `audit_row()` already captures every write with a before/after,
+   and a read row per admin page view would be permanent noise in an append-only table with 6+
+   year retention.
+9. **Durations are entered in minutes and stored in units, and a non-multiple of 10 is
+   REJECTED, never rounded.** Silently turning 45 into 50 leaves a clinic with a schedule five
+   minutes wrong on every appointment of that type and nothing to tell them — the same reasoning
+   that makes the duplicate-patient check a warning rather than a silent merge. The message names
+   the two nearest valid values so the user does not have to do the arithmetic.
+10. **No `loading.tsx` under `/admin/lookups`** — but for a *different* reason than `/patients`.
+    That route's argument is the read audit, and it does not transfer, since lookups are not PHI
+    and are not read-audited. The reason here is simply that a `loading.tsx` makes the route
+    prefetchable, so hovering nine rows fires nine RSC requests, each running middleware and
+    `getClaims()`, to render a list that comes back in one query. **Do not assume the audit
+    argument applies here** — this note exists so the next reader does not.
+11. **`params` must carry `q`, `sort`, `dir` and `archived`.** `DataTable`'s pagination patches
+    only `page`, so anything missing from `lookupsParams()` is silently dropped the moment
+    someone presses Next. It is the single most likely regression on these screens and has its
+    own live verification step.
 
 ## Role Access Matrix
 | Action | Patient | Staff | Doctor | Superadmin |
@@ -205,7 +334,12 @@ the route table stays non-enumerable.
 | Read `clinic_branding` | ✔ (also anon) | ✔ | ✔ | ✔ |
 | **Edit branding** | — | — | — | **✔** |
 | **Upload a clinic logo** | — | — | — | **✔** |
-| Edit lookups | — | — | — | ✔ (Phase 2.2b) |
+| **Read appointment types** | ✔ (bookable only) | ✔ | ✔ | ✔ |
+| **Read operatories** | — | ✔ | ✔ | ✔ |
+| **Read lookup values** | ✔ | ✔ | ✔ | ✔ |
+| **Edit any lookup** | — | — | — | **✔** |
+| **Archive a lookup** | — | — | — | **✔** (not built-in rows) |
+| Hard delete any lookup | — | — | — | — |
 | Edit email settings | — | — | — | ✔ (Phase 2.2c) |
 
 Proven live 39/39 before any UI existed: patient, staff, doctor and anon all get `forbidden`
@@ -214,7 +348,21 @@ from `update_clinic_branding`; hue 400, `http://` and `javascript:` logo URLs ar
 afterwards (`setup_superadmin_email` is unreachable); and patient/staff cannot mint a signed
 upload URL while superadmin can.
 
+Lookups proven live 47/47 before any UI existed: a patient sees only the 5 bookable types and
+zero operatories; staff see all 9 and both rooms but cannot write either; `delete` is ungranted
+even for superadmin; a category cannot be archived or re-keyed but *can* be renamed; a built-in
+value cannot be archived but can be renamed; a fee with no amount and a label with an amount are
+both refused; a duplicate live name is rejected and the name frees up once archived; and
+`numeric(12,2)` round-trips exactly at the top of its range.
+
 ## Open Questions
+- **`providers` has no admin screen**, so `operatories.default_provider_id` cannot be set from
+  the UI on a fresh install — the select is hidden rather than rendered empty. It arrives with
+  the scheduling module. Same situation `03-patients.md` records for `primary_provider_id`.
+- **Phase 4 guest booking needs a public door.** `/book` is anonymous and `anon` holds no grant
+  on `appointment_types`, so guest booking will need a definer-rights `bookable_services` view
+  granted to `anon`, exactly the way `clinic_branding` is the only public door into settings. Not
+  built in 2.2b: an anon-readable view with no reader is surface for nothing.
 - Move `theme`/`font_size` into the JWT via the access-token hook to remove the
   once-per-session read entirely? Elegant, but it means touching the verified Phase 0.2
   auth hook and a stale token would fight local changes for up to 15 minutes.

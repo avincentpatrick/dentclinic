@@ -26,6 +26,13 @@ export type Actor = {
   supabase: SupabaseClient<Database>;
   role: AppRole;
   userId: string;
+  /**
+   * The verified sign-in address, straight from the JWT. Free — `getClaims()` is
+   * already being called — and it avoids a second round trip for the one thing
+   * /profile shows that is not on the patients row. Optional because a claim set
+   * without it is not worth failing over.
+   */
+  email?: string;
 };
 
 const STAFF_SIDE: readonly AppRole[] = ["staff", "doctor", "superadmin"] as const;
@@ -43,7 +50,9 @@ export async function getActor(): Promise<Actor | null> {
   const userId = data?.claims?.sub as string | undefined;
   if (!role || !userId) return null;
 
-  return { supabase, role, userId };
+  const email = typeof data?.claims?.email === "string" ? data.claims.email : undefined;
+
+  return { supabase, role, userId, email };
 }
 
 /**

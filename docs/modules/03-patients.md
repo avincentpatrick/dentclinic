@@ -50,7 +50,8 @@ Check constraints: `patients_dob_sane`, `patients_not_merged_into_self`,
   staff-side roles only, returns at most 5 ranked matches.
 - `public.claim_or_create_patient(…)` — `security definer`, the self-registration path.
 - `public.update_own_patient(…)` — `security definer`, the `/profile` edit path.
-  **Still no call site after 2.1d** — `/profile` is deliberately out of scope until 2.1e/2.2.
+  **Wired in Phase 2.2b** ([src/app/actions/profile.ts](../../src/app/actions/profile.ts)). It was
+  the last RPC in the repo with no caller, tracked as PROGRESS decision 10 from 2.1d.
 
 Two later migrations touch this module:
 
@@ -69,7 +70,35 @@ Two later migrations touch this module:
 - `/patients` — roster (staff-side). `/patients/new`, `/patients/[id]`, `/patients/[id]/edit`.
 - `/register` — patient self-registration, **post-login** ([ROUTE_RULES](../../src/lib/roles.ts)),
   in the `(patient)` route group and in `PATIENT_SURFACES` so `auto` resolves to comfortable.
-- `/profile` — the patient's own record, in the `(shared)` route group. **Not built yet.**
+- `/profile` — the signed-in person's own record, in the `(shared)` route group. **Built in 2.2b.**
+
+  **Two sections, and that is what makes an ALL_ROLES route honest.** "Your account" — the
+  verified email (read-only *text*, deliberately not a disabled `Field`: a greyed-out input
+  invites "why can't I fix this", and the answer is that changing it belongs to the verified
+  sign-in flow), the role, and the patient number if there is one. Then "Your details" — the
+  form, when a `patients` row exists. The email comes from the JWT via `Actor.email`, which is
+  free because `getActor()` already calls `getClaims()`.
+
+  A patient with no row gets an `EmptyState` linking to `/register` — **not a redirect**, which
+  would steal the back button and read as a loop. A staff-side login with no row is told exactly
+  that, and the account section above still makes the page worth reaching, which is what
+  justifies the nav entry.
+
+  **The guard is `getActor()`, not `requirePatient()`.** `ROUTE_RULES` grants this route to
+  ALL_ROLES, and `update_own_patient` is not role-restricted either — it keys on `auth.uid()` and
+  no-ops to `no_patient_record`. A `requirePatient()` guard here would break `/profile` for the
+  three roles the route table deliberately grants it to. "There is a session" genuinely is the
+  whole check at that layer; the real allow-list is the RPC's parameter list.
+
+  `no_patient_record` (P0002) **is** the existence check — there is no pre-flight query, which
+  would be a TOCTOU race plus a round trip. It is reachable two ways: a staff-side user with no
+  row replaying the action id (an ordinary error that leaks nothing), and a patient whose record
+  was archived between load and submit (the real case, and the message says what to do).
+
+  Reachable from the patient tab bar, and **since 2.2b from the Settings sidebar group for
+  staff, doctor and superadmin** — increment 2.0 did explicit work (the `(shared)` group,
+  `SHARED_SURFACES`, the `x-role` header) to make this route role-correct, and a route
+  deliberately made correct with no way to reach it rots.
 
 ### The roster
 Server Component, zero client JS apart from `SearchField`, `SoftDeleteMenu` and the toast
@@ -91,13 +120,30 @@ Three things in the query are load-bearing:
    a bare `%` matches the entire roster.
 
 ### The read audit
-`public.log_read` had zero call sites before 2.1c. Now: one row per roster render
-(`entity='patients'`, both ids null — "who pulled up the roster, and when") and one per
-`/patients/[id]` and `/patients/[id]/edit` render, with `patient_id` set. Logged **after** the
-row is confirmed readable, never before — `log_read` is `security definer` and takes
-caller-supplied ids with no ownership check, so logging first would record a read of a record
-RLS then refused to return. Failures are swallowed: staff must never lose a chart because
-logging is broken.
+`public.log_read` had zero call sites before 2.1c. Now four: one row per roster render
+(`entity='patients'`, both ids null — "who pulled up the roster, and when"), one per
+`/patients/[id]` and `/patients/[id]/edit` render with `patient_id` set, and **since 2.2b one
+per `/profile` render**. Logged **after** the row is confirmed readable, never before —
+`log_read` is `security definer` and takes caller-supplied ids with no ownership check, so
+logging first would record a read of a record RLS then refused to return. Failures are
+swallowed: staff must never lose a chart because logging is broken.
+
+**Why `/profile` is audited at all**, when it is someone reading their own record. The counter —
+that a patient reading their own chart is not a disclosure event — is true under DPA reasoning
+and still loses, because the deciding case is not the patient one. `/profile` is granted to
+ALL_ROLES, so a staff, doctor or superadmin whose login is linked to a `patients` row reads a
+real chart there; leaving it unaudited would be a hole in "who looked at this patient" reachable
+by exactly the roles with the most access. `log_read`'s value is completeness, and a log with a
+documented hole is one nobody can rely on in a dispute. Volume is trivially bounded — a handful
+of views per person per year.
+
+It uses `entity='patients'`, **not a new `'profile'` entity**: the row already carries
+`actor_id`, so self-reads are separable with a query comparing it to the patient's `profile_id`.
+A second entity string would split the log for no gain.
+
+**Clinic configuration is not audited on read.** `/admin/lookups` writes are covered by
+`audit_row()` with a before/after; a read row per admin page view would be permanent noise in an
+append-only table with 6+ year retention. See [02-clinic-settings.md](02-clinic-settings.md).
 
 **There is deliberately no `loading.tsx` under `/patients`.** Without Cache Components a
 dynamic route is not prefetched *at all* unless it has a loading boundary; adding one would
@@ -200,6 +246,13 @@ walk-in row rather than duplicating it, links the profile, clears `is_provisiona
 the clinic-entered name, records consent, and is idempotent on re-submit; registration without
 consent is rejected; `update_own_patient` edits allow-listed fields and cannot touch
 `patient_number`.
+
+**Verified live 2026-08-13 (2.2b, `/profile`)** on the deployed Worker: a patient loads their own
+details, edits them, and the change persists across a reload; **an `email` input injected into
+the form via devtools does not change `patients.email`**, because the RPC has no parameter for it;
+a superadmin sees the account section and "no patient record" rather than an error; and opening
+`/profile` once adds **exactly one** `read` row to `private.audit_log` while five `/admin/lookups`
+page views add none.
 
 ## Role Access Matrix
 | Action | Patient | Staff | Doctor | Superadmin |
