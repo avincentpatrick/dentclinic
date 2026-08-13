@@ -1,5 +1,6 @@
 import { CalendarClock, Inbox } from "lucide-react";
 import { ErrorEmptyStateSpecimen } from "@/components/gallery/specimens/ErrorEmptyStateSpecimen";
+import { SubmitButton } from "@/components/shared/SubmitButton";
 import { ClinicalChip, StatusChip, CLINICAL_LEVELS, STATUS_KEYS } from "@/components/shared/StatusChip";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { DataTable, type Column } from "@/components/shared/DataTable";
@@ -7,7 +8,6 @@ import { DataTableSkeleton } from "@/components/shared/DataTable.skeleton";
 import { Field } from "@/components/shared/Field";
 import { InlineAlert } from "@/components/shared/InlineAlert";
 import { SearchField } from "@/components/shared/SearchField";
-import { SubmitButton } from "@/components/shared/SubmitButton";
 
 /** Fixtures for the DataTable specimens. Invented people, never real rows. */
 type DemoPatient = { id: string; patient_number: string; full_name: string; dob: string };
@@ -248,9 +248,9 @@ export const registry: GalleryEntry[] = [
     specimens: [
       {
         name: "Idle",
-        note: "Pending state needs a real <form>, so only the idle state is a fixture. Live instance: /patients/new.",
+        note: "A <form> with NO action: the registry renders inside a Server Component, where action={fn} throws 'Functions cannot be passed directly to Client Components'. useFormStatus outside a submitting form reports not-pending, which is exactly the idle state — the only one a static fixture can show. Live instance: /patients/new.",
         render: () => (
-          <form action={() => {}}>
+          <form>
             <SubmitButton idleLabel="Create patient" pendingLabel="Saving…" />
           </form>
         ),
@@ -259,7 +259,7 @@ export const registry: GalleryEntry[] = [
         name: "Unavailable",
         note: "disabled is for actions that genuinely cannot run — never for invalid input.",
         render: () => (
-          <form action={() => {}}>
+          <form>
             <SubmitButton idleLabel="Send test email" pendingLabel="Sending…" disabled />
           </form>
         ),

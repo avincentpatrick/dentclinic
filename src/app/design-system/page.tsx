@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { GalleryControls } from "@/components/gallery/GalleryControls";
 import { MatrixPane } from "@/components/gallery/MatrixPane";
-import { registry, type GalleryEntry } from "@/components/gallery/registry";
+import { registry } from "@/components/gallery/registry";
+import { GALLERY_GROUPS, GROUP_LABELS, parseGroup } from "@/components/gallery/groups";
 import { AppearancePanel } from "@/components/theme/AppearancePanel";
 import { FONT_STEPS, type FontStep } from "@/lib/appearance";
 
@@ -10,17 +11,20 @@ export const metadata: Metadata = { title: "Design system" };
 
 const THEMES = ["light", "dark"] as const;
 
-const GROUP_LABELS: Record<GalleryEntry["group"], string> = {
-  shell: "Shell",
-  shared: "Shared",
-  search: "Search",
-  feedback: "Feedback",
-};
-
 export default async function DesignSystemPage({ searchParams }: PageProps<"/design-system">) {
   const params = await searchParams;
   const matrix = params.matrix === "all";
-  const groups = Object.keys(GROUP_LABELS) as GalleryEntry["group"][];
+
+  /**
+   * `?group=` narrows the page to one group. The matrix renders every specimen
+   * across 2 themes × 4 font steps, so the full page grew past what axe-core can
+   * analyse in one pass — it timed out at 30s and then crashed the browser
+   * process, taking the next test with it. Chunking by group keeps each axe run
+   * small and keeps coverage total, and it scales as the gallery grows rather
+   * than needing the timeout raised again every phase.
+   */
+  const only = parseGroup(params.group);
+  const groups = only ? [only] : GALLERY_GROUPS;
 
   return (
     <main id="main" className="mx-auto w-full max-w-6xl px-4 py-8">

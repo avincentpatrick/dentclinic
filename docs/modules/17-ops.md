@@ -36,15 +36,23 @@ That is adequate **only if `BACKUP_PASSPHRASE` is long and randomly generated.**
 human-memorable passphrase is not safe under this threat model — iterations buy time against a
 strong secret, they do not rescue a weak one.
 
-**Decide before real patient data exists.** Options, roughly in order of preference:
-1. Make the repo private again and fix the Actions billing — restores the original model.
-2. Keep it public and push backups to a private destination (a private repo's artifacts, R2,
-   or a storage bucket) instead of leaving them as artifacts of a public run.
-3. Keep as-is with a verified high-entropy passphrase, and accept that the ciphertext is
-   public.
+**DECIDED 2026-08-13 (owner): stay public, accept public ciphertext.** The passphrase was
+verified as randomly generated — 32 characters, 3 character classes, ~191 bits of entropy —
+which puts offline recovery beyond reach at any iteration count. The 600k iterations are
+defence in depth, not the load-bearing control; the passphrase is.
 
-Today the database holds **0 patient rows**, so nothing sensitive has been exposed. The window
-for choosing closes the moment the clinic registers its first real patient.
+What this decision depends on, and therefore what must never change quietly:
+
+- **`BACKUP_PASSPHRASE` must stay high-entropy and randomly generated.** If it is ever rotated
+  to something memorable, this decision is void and backups must move off public artifacts the
+  same day.
+- **The passphrase must never enter a tracked file** (AGENTS.md § conventions). It is the only
+  thing standing between a public download and the clinic's records.
+- **Losing it means losing every backup.** Keep the offline copy in a password manager.
+
+Alternatives, if the decision is ever revisited: make the repo private again and fix Actions
+billing; or keep it public and push the encrypted dump to a private destination (R2, a private
+repo) rather than leaving it as an artifact of a public run.
 
 ## Restore drill log
 
