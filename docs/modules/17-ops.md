@@ -243,4 +243,22 @@ fallbacks never loaded on x64, so collapsing them costs nothing. Remove when npm
 | Any ops action | — | — | — | ✔ (plus repo owner) |
 
 ## Open Questions
-- Custom domain for the clinic (needed before SPF/DKIM/DMARC in Phase 2 — workers.dev can't hold DNS records; a cheap domain ~$10/yr is the one unavoidable cost)
+
+- **Custom domain — DEFERRED 2026-08-13 (owner): the project stays at $0 through development.**
+  `workers.dev` cannot hold DNS records, so SPF/DKIM/DMARC cannot be configured and DMARC
+  alignment cannot pass. Consequence, accepted rather than worked around: Phase 2.2c's
+  `mail-tester ≥9/10` is **knowingly unmet**; everything else in that increment ships and is
+  testable, including a real test send.
+
+  A free subdomain was considered and rejected. The options are: services allowing a single TXT
+  record (enough for an ACME challenge, not for three), services needing slow manual approval
+  that also forbid commercial use, and the abandoned free TLDs that mail providers filter on
+  sight. All three would make deliverability *worse* than having no domain.
+
+  Practical note for the interim setup: a `@gmail.com` from-address sent through Brevo fails
+  DMARC by design — Brevo is not authorised to send as you — so test mail may land in spam.
+  That is the absence of a domain, not a defect in the send path.
+
+  **Trigger to revisit: before any real patient receives an email.** ~$10/yr at Cloudflare
+  Registrar (at-cost, and DNS would then sit beside the Worker). It is the only cost in the
+  entire stack — Workers, KV, D1, Supabase, GitHub Actions and Brevo are all free tier.
