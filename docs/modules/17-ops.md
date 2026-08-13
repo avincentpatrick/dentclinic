@@ -24,8 +24,14 @@ rather than a narrow one. Being account super-admin does not help: the *token's*
 what count, not the membership role.
 
 Known-needed so far: Workers Scripts (deploy), Workers KV (the incremental cache).
-**D1 Edit is required for the branding tag cache and was missing when 2.2a was built** — see the
-caching note below. Add scopes at dash.cloudflare.com/profile/api-tokens.
+**D1 Edit is required for the branding tag cache and is STILL MISSING** — see the caching note
+below. Add scopes at dash.cloudflare.com/profile/api-tokens.
+
+Re-checked **2026-08-14** at the start of 2.2d: `npx wrangler d1 list` fails with
+`Authentication error [code: 10000]` on `/accounts/…/d1/database`. So the tag cache remains
+unwired and decision 14 stands — with both overrides at their `"dummy"` default, branding is
+read per request: slower, always correct. **Do not wire KV alone**; that is the one combination
+worse than doing nothing. Check with that one command before planning any cache work.
 
 **Free-tier quirk discovered 2026-08-12:** Supabase's 2-active-free-projects limit counts per *user* across every org they own/administer — a second scratch project could not be created even on the dedicated account. Restore drills therefore target the local Supabase stack (Docker); a real disaster restore would reuse the (dead) production slot.
 
@@ -180,6 +186,36 @@ Two related traps, both hit once:
   writes Linux binaries into the host's `node_modules` and leaves the working copy unrunnable
   until a local `npm ci`. `scripts/refresh-lock.mjs` uses `--package-lock-only` precisely to
   avoid this; do not drop that flag.
+
+## Verifying a migration before the UI exists
+
+`supabase/verify/NNNN-*.sql`, run with psql:
+
+```bash
+psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/verify/0015-feedback.sql
+```
+
+**Committed since 2.2d, and that is the change.** 2.0's 21/21, 2.2a's 39/39 and 2.2b's 47/47
+were ad-hoc SQL typed into a session: only their *counts* survive, in PROGRESS.md, so nothing
+re-runs them and "the RLS on `patients` is still correct" rests on a number in a markdown file.
+Writing the verification before the UI has caught a real bug in every increment that used it;
+making it repeatable costs almost nothing.
+
+Three things a verification script here must do, all learned the hard way:
+
+- **`SET ROLE authenticated` and forge `request.jwt.claims`.** The connecting role is a
+  superuser and BYPASSES RLS entirely, so a check that runs as `postgres` proves nothing about
+  a policy.
+- **Assert writes as an actor who is allowed to write.** An UPDATE that no policy grants
+  matches zero rows and *succeeds*, so an "is this rejected?" check placed under the wrong role
+  passes while testing nothing.
+- **Wrap in `begin … rollback`, and create the helper functions BEFORE the `begin`** — the
+  rollback drops anything created inside it, including the helpers the post-rollback checks
+  need. Note that psql does **not** interpolate `:'variables'` inside a dollar-quoted block;
+  use `set_config('verify.x', …, true)` and `current_setting()` instead.
+
+`psql` is not a project dependency; on this machine it is at
+`C:\Program Files\PostgreSQL\18\bin\psql.exe`.
 
 ## Generated database types
 

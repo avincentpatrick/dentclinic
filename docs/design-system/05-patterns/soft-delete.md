@@ -5,6 +5,12 @@
 Nothing in this system is ever deleted. The word does not appear in the UI, there is no
 DELETE grant on any table, and every domain table carries `deleted_at` / `deleted_by`.
 
+> **`ToastOnMount` is generic since 2.2d.** It used to import `restorePatientById` directly and
+> take an `undoPatientId`, which quietly made the app's one toast surface patients-only — the
+> feedback queue needed the identical archive-with-undo and could not have it. It now takes
+> `onUndo`, a **bound Server Action**, which is the one kind of function that may cross the
+> Server-to-Client boundary. Callers bind their own: `restoreReportById.bind(null, id)`.
+
 ## Why, concretely
 
 A deleted patient is a deleted appointment history, a deleted invoice, and an audit trail

@@ -102,22 +102,103 @@ if (missing.length) {
 // Parsed from source by regex, like ROUTE_RULES above, so this file needs no TS
 // loader. Static hrefs only — a dynamic one would be a different check.
 // ---------------------------------------------------------------------------
-const sectionsSource = readFileSync("src/lib/admin/sections.ts", "utf8");
+/**
+ * Drop comments before matching.
+ *
+ * Both files below are heavily commented, and nav.ts deliberately keeps a
+ * COMMENTED-OUT nav item as the note telling Phase 3 where to put Availability
+ * back. Without this, that comment reads as a live link and the check fails on
+ * a line that ships nothing — the check crying wolf about its own documentation.
+ *
+ * Block comments first, then whole-line `//` comments. Only whole-line ones, so
+ * a `https://` inside a string is never touched.
+ */
+function stripComments(source) {
+  return source
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .split("\n")
+    .filter((line) => !line.trimStart().startsWith("//"))
+    .join("\n");
+}
+
+const sectionsSource = stripComments(readFileSync("src/lib/admin/sections.ts", "utf8"));
 const sectionHrefs = [...sectionsSource.matchAll(/^\s*href:\s*"([^"]+)"/gm)].map((m) => m[1]);
 
-const danglingLinks = sectionHrefs.filter((href) => !routes.includes(href));
+// ---------------------------------------------------------------------------
+// ...and so must NAV links.
+//
+// The dangling-link check above was added in 2.2b for ADMIN_SECTIONS, but the
+// bug it was written about happened in nav.ts: `nav.ts` linked "Clinic
+// settings" to /admin from the sidebar, the More sheet and the command palette
+// for TWO WHOLE PHASES before the page existed, so every superadmin who clicked
+// it got a 404. Checking only the hub left the original offender unchecked.
+//
+// Static hrefs only. `navHref()` may append a `?from=` query string at render
+// time; the route is the part before it and is what has to exist.
+// ---------------------------------------------------------------------------
+const navSource = stripComments(readFileSync("src/lib/shell/nav.ts", "utf8"));
+const navHrefs = [...navSource.matchAll(/href:\s*"([^"]+)"/g)].map((m) => m[1]);
 
-if (danglingLinks.length) {
-  console.error(`\n  Admin sections linking to routes that do not exist:\n`);
-  danglingLinks.forEach((h) => console.error(`    ${h}`));
+if (navHrefs.length === 0) {
+  console.error("\n  No hrefs parsed from src/lib/shell/nav.ts — has NavItem changed shape?\n");
+  process.exit(1);
+}
+
+const dangling = [
+  ...sectionHrefs.filter((href) => !routes.includes(href)).map((h) => [h, "ADMIN_SECTIONS"]),
+  ...navHrefs.filter((href) => !routes.includes(href)).map((h) => [h, "nav.ts"]),
+];
+
+if (dangling.length) {
+  console.error(`\n  Links pointing at routes that do not exist:\n`);
+  dangling.forEach(([h, where]) => console.error(`    ${h}  (${where})`));
   console.error(
-    `\n  A section with an href renders as a link, so this ships a 404 to superadmins.\n` +
-      `  Either build the page or drop the href — an absent href renders a plain card.\n`,
+    `\n  These render as links, so this ships a 404 to whoever clicks one.\n` +
+      `  Either build the page, or remove the link — in ADMIN_SECTIONS an absent\n` +
+      `  href renders a plain card, which is the point of it being optional.\n`,
+  );
+  process.exit(1);
+}
+
+// ---------------------------------------------------------------------------
+// ROUTE_PATTERNS must be exactly the set of real page routes.
+//
+// It is the closed set `maskPath()` maps a feedback report's `path` onto — rule
+// 1 of docs/modules/16-feedback.md, the rule that stops `feedback_reports`
+// becoming a log of which patient each staff member viewed. A missing entry
+// means reports from that screen silently record no path at all; a stale entry
+// means a pattern nothing can produce. Neither fails anywhere else, which is
+// why it is asserted here rather than trusted.
+//
+// Page routes only: a route handler has no UI for anyone to be standing on.
+// ---------------------------------------------------------------------------
+const patternsSource = readFileSync("src/lib/feedback/path.ts", "utf8");
+const patternsBlock = patternsSource.match(/ROUTE_PATTERNS\s*=\s*\[([\s\S]*?)\]\s*as const/);
+
+if (!patternsBlock) {
+  console.error("\n  Could not find ROUTE_PATTERNS in src/lib/feedback/path.ts.\n");
+  process.exit(1);
+}
+
+const patterns = [...patternsBlock[1].matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+const realPages = pages.filter((r) => r !== "/_not-found");
+
+const missingPatterns = realPages.filter((r) => !patterns.includes(r));
+const extraPatterns = patterns.filter((p) => !realPages.includes(p));
+
+if (missingPatterns.length || extraPatterns.length) {
+  console.error(`\n  ROUTE_PATTERNS (src/lib/feedback/path.ts) is out of step with the app:\n`);
+  missingPatterns.forEach((r) => console.error(`    missing: ${r}`));
+  extraPatterns.forEach((r) => console.error(`    stale:   ${r}`));
+  console.error(
+    `\n  maskPath() can only ever return a member of that list, so a missing route\n` +
+      `  means feedback filed from it records no screen at all.\n`,
   );
   process.exit(1);
 }
 
 console.log(
   `\n  routes: ${pages.length} pages + ${handlers.length} route handlers, ` +
-    `all covered by ROUTE_RULES; ${sectionHrefs.length} admin links resolve.\n`,
+    `all covered by ROUTE_RULES;\n  ${sectionHrefs.length} admin links + ${navHrefs.length} nav links resolve; ` +
+    `${patterns.length} route patterns in sync.\n`,
 );

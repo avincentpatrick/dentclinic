@@ -1,18 +1,10 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import { GALLERY_GROUPS } from "../../src/components/gallery/groups";
-
-const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
-
-/** Readable failure output — axe's raw objects are unusable in CI logs. */
-function format(violations: Awaited<ReturnType<AxeBuilder["analyze"]>>["violations"]) {
-  return violations.map((v) => ({
-    id: v.id,
-    impact: v.impact,
-    help: v.help,
-    nodes: v.nodes.slice(0, 3).map((n) => n.target.join(" ")),
-  }));
-}
+// TAGS and format() moved to a shared helper when the authenticated suite
+// arrived — two copies of the tag list is how one of them quietly stops
+// checking WCAG 2.2.
+import { TAGS, format } from "../helpers/axe";
 
 test.describe("accessibility", () => {
   // The matrix renders every specimen across 2 themes × 4 font steps. Once the
@@ -23,6 +15,24 @@ test.describe("accessibility", () => {
   // group cannot be added without being tested.
   for (const group of GALLERY_GROUPS) {
     test(`design-system matrix — ${group} (both themes x 4 font sizes)`, async ({ page }) => {
+      // Playwright's 30s default is not enough for the biggest group.
+      //
+      // This is PROGRESS decision 6 happening a second time, one level down.
+      // That decision chunked the matrix by `?group=` because a single page of
+      // every specimen exceeded what axe could analyse in one pass. `layouts`
+      // has now grown to seven whole-page compositions, and at 2 themes x 4
+      // font steps that is 56 rendered screens in one DOM: axe finished it in
+      // ~25s on Desktop Chrome and ran out of time at 30s on Pixel 7.
+      //
+      // Nothing is wrong with the page — the work simply takes longer than the
+      // default allows, and a gate that fails on a stopwatch gets ignored (the
+      // same lesson as the memory-scaled worker cap in playwright.config.ts).
+      //
+      // THE NEXT ADDITION TO `layouts` SHOULD SPLIT THE GROUP, not raise this
+      // number again. Chunking is what decision 6 chose and it is still the
+      // right answer; this buys headroom, not a policy.
+      test.setTimeout(90_000);
+
       await page.goto(`/design-system?matrix=all&group=${group}`);
       await expect(page.getByRole("heading", { name: "Design system", level: 1 })).toBeVisible();
 

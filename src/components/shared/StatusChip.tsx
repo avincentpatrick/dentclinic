@@ -8,6 +8,14 @@ import {
   CircleAlert,
   CircleCheck,
   CircleDashed,
+  CircleSlash,
+  Copy,
+  Eye,
+  Hammer,
+  Inbox,
+  Info,
+  OctagonAlert,
+  Paintbrush,
   ShieldCheck,
   TriangleAlert,
   UserX,
@@ -212,6 +220,153 @@ export function RecordChip({
   className?: string;
 }) {
   return <Chip meta={RECORD_META[state]} size={size} className={className} />;
+}
+
+/**
+ * Feedback triage — a FOURTH vocabulary, separate for the same reason
+ * `RecordState` is separate from `StatusKey`.
+ *
+ * "Resolved" is a property of a bug report; "Completed" is a property of a
+ * visit. One type for both would let `<StatusChip status="wont_fix" />` render
+ * on a calendar cell, and would put report statuses into `STATUS_KEYS`, which
+ * drives the gallery loops and the a11y matrix.
+ *
+ * NO NEW COLOUR TOKENS. Every pair below is one of the 13 already swept by
+ * `npm run check:contrast` across all 360 brand hues, or the neutral
+ * muted/border pair — 07-contributing.md's rule is that an unlisted token is an
+ * unproven token, and the cheapest way to satisfy it is not to invent one.
+ *
+ * That leaves three attention levels for six statuses, so some colours repeat.
+ * That is fine and is not a colour-only chip: WCAG 1.4.1 forbids colour as the
+ * ONLY signal, and every chip here carries a distinct label and a distinct
+ * icon. `--destructive` is deliberately unused — it is reserved for destructive
+ * actions, and a severity is a description, not something about to delete data.
+ */
+export type FeedbackStatusKey =
+  | "new"
+  | "triaged"
+  | "in_progress"
+  | "resolved"
+  | "wont_fix"
+  | "duplicate";
+
+export type FeedbackSeverityKey = "blocker" | "major" | "minor" | "cosmetic";
+
+export const FEEDBACK_STATUS_KEYS: readonly FeedbackStatusKey[] = [
+  "new",
+  "triaged",
+  "in_progress",
+  "resolved",
+  "wont_fix",
+  "duplicate",
+] as const;
+
+export const FEEDBACK_SEVERITY_KEYS: readonly FeedbackSeverityKey[] = [
+  "blocker",
+  "major",
+  "minor",
+  "cosmetic",
+] as const;
+
+const NEUTRAL = { bg: "bg-muted", fg: "text-muted-foreground", ring: "ring-border" } as const;
+
+const FEEDBACK_STATUS_META: Record<FeedbackStatusKey, StatusMeta> = {
+  new: {
+    label: "New",
+    Icon: Inbox,
+    bg: "bg-warning-soft",
+    fg: "text-warning-on-soft",
+    ring: "ring-warning/25",
+  },
+  triaged: {
+    label: "Triaged",
+    Icon: Eye,
+    bg: "bg-info-soft",
+    fg: "text-info-on-soft",
+    ring: "ring-info/20",
+  },
+  in_progress: {
+    label: "In progress",
+    Icon: Hammer,
+    bg: "bg-info-soft",
+    fg: "text-info-on-soft",
+    ring: "ring-info/20",
+  },
+  resolved: {
+    label: "Resolved",
+    Icon: CircleCheck,
+    bg: "bg-success-soft",
+    fg: "text-success-on-soft",
+    ring: "ring-success/20",
+  },
+  wont_fix: { label: "Won't fix", Icon: CircleSlash, ...NEUTRAL },
+  duplicate: { label: "Duplicate", Icon: Copy, ...NEUTRAL },
+};
+
+/**
+ * Short labels, unlike `SEVERITY_LABELS` in `src/lib/feedback/schema.ts`.
+ *
+ * Not duplication: the picker asks a question and answers it in a sentence the
+ * reporter recognises ("Blocking my work"), while a chip in a dense table has
+ * room for a word. Two contexts, two strings, on purpose.
+ */
+const FEEDBACK_SEVERITY_META: Record<FeedbackSeverityKey, StatusMeta> = {
+  blocker: {
+    label: "Blocker",
+    Icon: OctagonAlert,
+    bg: "bg-warning-soft",
+    fg: "text-warning-on-soft",
+    ring: "ring-warning/25",
+  },
+  major: {
+    label: "Major",
+    Icon: TriangleAlert,
+    bg: "bg-warning-soft",
+    fg: "text-warning-on-soft",
+    ring: "ring-warning/25",
+  },
+  minor: {
+    label: "Minor",
+    Icon: Info,
+    bg: "bg-info-soft",
+    fg: "text-info-on-soft",
+    ring: "ring-info/20",
+  },
+  cosmetic: { label: "Cosmetic", Icon: Paintbrush, ...NEUTRAL },
+};
+
+/** Where a bug report has got to. Same chip + label + icon contract. */
+export function FeedbackStatusChip({
+  status,
+  size,
+  className,
+}: {
+  status: FeedbackStatusKey;
+  size?: ChipSize;
+  className?: string;
+}) {
+  return <Chip meta={FEEDBACK_STATUS_META[status]} size={size} className={className} />;
+}
+
+/** How badly it bites. Reporter-set, superadmin-overridable. */
+export function FeedbackSeverityChip({
+  severity,
+  size,
+  className,
+}: {
+  severity: FeedbackSeverityKey;
+  size?: ChipSize;
+  className?: string;
+}) {
+  return <Chip meta={FEEDBACK_SEVERITY_META[severity]} size={size} className={className} />;
+}
+
+export function feedbackStatusLabel(status: FeedbackStatusKey): string {
+  return FEEDBACK_STATUS_META[status].label;
+}
+
+export function feedbackSeverityLabel(severity: FeedbackSeverityKey): string {
+  return FEEDBACK_SEVERITY_META[severity].label;
 }
 
 export function statusLabel(status: StatusKey): string {

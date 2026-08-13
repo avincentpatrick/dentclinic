@@ -35,6 +35,15 @@ The system is 17 modules (docs `01`–`17` in this folder). The full approved bl
   tables and functions. An unqualified `::citext` parses and deploys, then fails at run time
   (0007). Prefer letting an implicit cast do the work.
 - **Audit exemption.** Write-audit triggers go on domain/clinical/PHI tables. Personal display preferences are not audited: `private.audit_log` is append-only with 6+ year retention and exempt from purge, so auditing a theme toggle adds permanent rows with no investigative value. `settings_change` is for clinic-wide settings that affect other people.
+- **Audit exemption — free-text tables get a NARROW transition trigger, never `audit_row()`.**
+  So far: `feedback_reports` (0015). `audit_row()` writes `to_jsonb(new)` — the whole row — and
+  a feedback report's `body` is text a human types, into which humans paste patient names no
+  matter what the help text says. Because the log is append-only and **exempt from purge**,
+  mirroring that body into it would make accidental PHI permanently unpurgeable, created by the
+  very feature meant to make the system safer to report problems with. `feedback_status_audit`
+  records `{status: old → new}` and `{deleted_at: old → new}` and nothing else; filing writes no
+  row at all. Any future table whose columns include user-authored prose follows the same shape.
+  Reasoning in [16-feedback.md](16-feedback.md) rule 2.
 - Schemas: `public` = domain; `private` = `audit_log`, `action_tokens`, `settings` (never exposed via PostgREST).
 - Enums: `app_role` (patient/doctor/staff/superadmin), `appt_status` (scheduled/complete/broken/unscheduled/planned/asap), `visit_status` (none/arrived/in_chair/done), `confirm_status`, `acceptance_status` (pending/accepted/referred).
 - Durations are integer counts of **10-minute units**. Appointment conflict math uses the generated `time_range tstzrange` (buffers included); patient-facing UI shows bare duration.

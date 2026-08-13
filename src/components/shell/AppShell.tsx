@@ -9,6 +9,7 @@ import { Toaster } from "@/components/shared/Toaster";
 import { CommandKProvider } from "@/components/search/CommandKProvider";
 import { AppearanceMenu } from "@/components/theme/AppearanceMenu";
 import { getBranding } from "@/lib/branding";
+import { getNewReportCount } from "@/lib/feedback/read";
 import { IDLE_MS, IDLE_WARN_MS, SIDEBAR_COOKIE, SIDEBAR_RAIL_WIDTH, SIDEBAR_WIDTH } from "@/lib/shell/config";
 import type { AppRole } from "@/lib/roles";
 
@@ -24,7 +25,15 @@ import type { AppRole } from "@/lib/roles";
  * exactly the flash the token system was built to avoid.
  */
 export async function AppShell({ role, children }: { role: AppRole; children: React.ReactNode }) {
-  const [jar, branding] = await Promise.all([cookies(), getBranding()]);
+  const [jar, branding, feedbackCount] = await Promise.all([
+    cookies(),
+    getBranding(),
+    // 16-feedback.md rule 4: filing never sends email, so the queue itself is
+    // the notification. Superadmin only -- nobody else can read the queue, and
+    // a count of rows they cannot open would be noise. `getNewReportCount`
+    // returns 0 on any failure: a badge must never take the shell down.
+    role === "superadmin" ? getNewReportCount() : Promise.resolve(0),
+  ]);
   const collapsed = jar.get(SIDEBAR_COOKIE)?.value === "collapsed";
 
   return (
@@ -48,6 +57,7 @@ export async function AppShell({ role, children }: { role: AppRole; children: Re
         <AppSidebar
           role={role}
           defaultCollapsed={collapsed}
+          feedbackCount={feedbackCount}
           brandName={branding.clinicName}
           brandLogoUrl={branding.logoUrl}
         >
@@ -69,7 +79,7 @@ export async function AppShell({ role, children }: { role: AppRole; children: Re
           </main>
         </div>
 
-        <BottomTabBar role={role} />
+        <BottomTabBar role={role} feedbackCount={feedbackCount} />
         <IdleTimeoutGuard idleMs={IDLE_MS[role]} warnMs={IDLE_WARN_MS} />
         {/* Mounted here rather than in the root layout: /login, /book and
             /settings/appearance have no toasts and should not pay for the

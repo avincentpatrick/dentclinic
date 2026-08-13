@@ -3,6 +3,8 @@ import { AdminSectionGrid } from "@/components/admin/AdminSectionGrid";
 import { ADMIN_SECTIONS } from "@/lib/admin/sections";
 import { ListToolbar } from "@/components/lookups/ListToolbar";
 import { AppointmentTypeFields } from "@/components/lookups/AppointmentTypeFields";
+import { FeedbackFields } from "@/components/feedback-report/FeedbackFields";
+import { TriageFields } from "@/components/feedback-report/TriageFields";
 import { ProfileFields } from "@/components/patients/ProfileFields";
 import { BrandingFormSpecimen } from "@/components/gallery/specimens/BrandingFormSpecimen";
 import { ErrorEmptyStateSpecimen } from "@/components/gallery/specimens/ErrorEmptyStateSpecimen";
@@ -13,9 +15,13 @@ import type { Confirmable } from "@/lib/forms/action-state";
 import { SubmitButton } from "@/components/shared/SubmitButton";
 import {
   ClinicalChip,
+  FeedbackSeverityChip,
+  FeedbackStatusChip,
   RecordChip,
   StatusChip,
   CLINICAL_LEVELS,
+  FEEDBACK_SEVERITY_KEYS,
+  FEEDBACK_STATUS_KEYS,
   RECORD_STATES,
   STATUS_KEYS,
 } from "@/components/shared/StatusChip";
@@ -186,6 +192,28 @@ export const registry: GalleryEntry[] = [
           <div className="flex flex-wrap gap-2">
             {RECORD_STATES.map((s) => (
               <RecordChip key={s} state={s} />
+            ))}
+          </div>
+        ),
+      },
+      {
+        name: "Feedback triage statuses",
+        note: "A FOURTH vocabulary, separate again: 'Resolved' is a property of a bug report, 'Completed' of a visit. Three attention levels for six statuses means colours repeat - legal, because colour is never the only signal: the label and icon always differ.",
+        render: () => (
+          <div className="flex flex-wrap gap-2">
+            {FEEDBACK_STATUS_KEYS.map((s) => (
+              <FeedbackStatusChip key={s} status={s} />
+            ))}
+          </div>
+        ),
+      },
+      {
+        name: "Feedback severities",
+        note: "No --destructive here: it is reserved for destructive ACTIONS, and a severity describes a report rather than threatening data. Reporter-set, superadmin-overridable.",
+        render: () => (
+          <div className="flex flex-wrap gap-2">
+            {FEEDBACK_SEVERITY_KEYS.map((s) => (
+              <FeedbackSeverityChip key={s} severity={s} />
             ))}
           </div>
         ),
@@ -829,6 +857,131 @@ export const registry: GalleryEntry[] = [
                 <SubmitButton idleLabel="Save my details" pendingLabel="Saving…" />
               </div>
             </form>
+          </div>
+        ),
+      },
+    ],
+  },
+  {
+    id: "feedback-form",
+    name: "Report a problem screen",
+    group: "layouts",
+    doc: "docs/modules/16-feedback.md",
+    description:
+      "The /feedback composition. The screen the reporter came from is captured automatically and stored MASKED (/patients/[id], never a real id) - the notice says so, because a form that silently records where you were is worse than one that tells you.",
+    specimens: [
+      {
+        name: "Filing from a patient chart",
+        note: "The notice is rule 1 made visible: it names the masked pattern that will be stored, so nobody has to take the masking on trust.",
+        render: () => (
+          <div>
+            <PageHeader
+              title="Report a problem"
+              description="Tell the clinic administrator what went wrong, or suggest something that would work better."
+            />
+            <div className="mt-4">
+              <InlineAlert tone="info" title="Reporting about a screen you were just on">
+                <p>
+                  This report will be tagged <code className="font-mono">/patients/[id]</code>. Only
+                  the screen is recorded, never which record you were viewing.
+                </p>
+              </InlineAlert>
+            </div>
+            <form noValidate className="mt-6 flex flex-col gap-6">
+              <FeedbackFields
+                values={{
+                  kind: "bug",
+                  severity: "major",
+                  title: "Saving a new patient does nothing",
+                  body: "Pressed Create patient on the 10:30 appointment and the button spun, then the form came back empty.",
+                }}
+                errors={{}}
+              />
+              <div>
+                <SubmitButton idleLabel="Send report" pendingLabel="Sending..." />
+              </div>
+            </form>
+          </div>
+        ),
+      },
+      {
+        name: "With a rejected field",
+        note: "`invalid` renders at the field, never as a banner - it is the user's to fix.",
+        render: () => (
+          <div>
+            <PageHeader title="Report a problem" />
+            <form noValidate className="mt-6 flex flex-col gap-6">
+              <FeedbackFields
+                values={{ kind: "idea", severity: "minor", title: "", body: "It would help if..." }}
+                errors={{ title: "A short summary is required." }}
+              />
+              <div>
+                <SubmitButton idleLabel="Send report" pendingLabel="Sending..." />
+              </div>
+            </form>
+          </div>
+        ),
+      },
+    ],
+  },
+  {
+    id: "feedback-triage",
+    name: "Feedback triage screen",
+    group: "layouts",
+    doc: "docs/modules/16-feedback.md",
+    description:
+      "The /admin/feedback/[id] composition. The report itself is static text because the database pins it: title, body, path, kind and the reporter are immutable after filing, so only status, severity and the triage note have controls.",
+    specimens: [
+      {
+        name: "A new report being triaged",
+        render: () => (
+          <div>
+            <PageHeader
+              title="Saving a new patient does nothing"
+              description="Something is broken, reported by a staff."
+            />
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <FeedbackStatusChip status="new" />
+              <FeedbackSeverityChip severity="major" />
+            </div>
+            <section aria-labelledby="specimen-report-body" className="mt-6">
+              <h2 id="specimen-report-body" className="text-lg font-semibold text-foreground">
+                What was reported
+              </h2>
+              <p className="mt-2 whitespace-pre-wrap text-base text-foreground">
+                Pressed Create patient on the 10:30 appointment and the button spun, then the form
+                came back empty.
+              </p>
+            </section>
+            <section aria-labelledby="specimen-report-context" className="mt-6">
+              <h2 id="specimen-report-context" className="text-lg font-semibold text-foreground">
+                Context
+              </h2>
+              <dl className="mt-2 grid gap-x-6 gap-y-3 sm:grid-cols-2">
+                <div>
+                  <dt className="text-sm text-muted-foreground">Screen</dt>
+                  <dd className="mt-0.5 font-mono text-sm text-foreground">/patients/new</dd>
+                </div>
+                <div>
+                  <dt className="text-sm text-muted-foreground">Screen size</dt>
+                  <dd className="mt-0.5 text-foreground">390x844</dd>
+                </div>
+              </dl>
+            </section>
+            <section aria-labelledby="specimen-report-triage" className="mt-8">
+              <h2 id="specimen-report-triage" className="text-lg font-semibold text-foreground">
+                Triage
+              </h2>
+              <form noValidate className="mt-6 flex flex-col gap-6">
+                <TriageFields
+                  values={{ status: "triaged", severity: "major", triage_note: "" }}
+                  errors={{}}
+                />
+                <div>
+                  <SubmitButton idleLabel="Save triage" pendingLabel="Saving..." />
+                </div>
+              </form>
+            </section>
           </div>
         ),
       },

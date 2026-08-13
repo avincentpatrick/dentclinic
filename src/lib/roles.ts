@@ -46,6 +46,12 @@ export const ROUTE_RULES: readonly RouteRule[] = [
   // member reaching it would give their own login a chart.
   { prefix: "/register", roles: ["patient"] },
   { prefix: "/profile", roles: ALL_ROLES },
+  // Anyone signed in can report a problem; nobody signed out can. 16-feedback.md
+  // rule 5: a public insert endpoint with no captcha and no rate limiting is an
+  // abuse vector on a free tier. Guests on /book get the clinic phone number.
+  // `/admin/feedback` is the triage side and needs no rule — `{ prefix: "/admin" }`
+  // already covers it.
+  { prefix: "/feedback", roles: ALL_ROLES },
 
   // Staff + doctor (+ superadmin).
   { prefix: "/today", roles: STAFF_SIDE },

@@ -51,3 +51,6 @@ cloudflare-env.d.ts
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+# storageState files hold a LIVE Supabase refresh token. AGENTS.md: "no working
+# credential in a tracked file, ever" — the .cache line above does not cover it.
+/playwright/.auth/

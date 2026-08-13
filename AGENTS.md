@@ -33,7 +33,7 @@ Full blueprint: `docs/PLAN.md` (canonical copy of the approved plan). Progress: 
 ## Session rituals
 
 - **Start:** read `PROGRESS.md` Snapshot → read the current increment's module doc(s) → re-verify the previous increment's acceptance criteria → work.
-- **End:** update `PROGRESS.md` (statuses, Snapshot, session-log line ending with `NEXT:`), update touched docs, commit, deploy if green, and **hand the user a ready-to-copy prompt for the next session**.
+- **End:** run `npm run verify` (offline, must be green) **and `npm run test:authed`** — the latter is not part of `verify` and never will be, because `verify`'s offline claim is worth more than folding a service-role key into it; it is also the only gate that renders an authenticated page, which is how 2.2b shipped six 500ing routes. Then update `PROGRESS.md` (statuses, Snapshot, session-log line ending with `NEXT:`), update touched docs, commit, deploy if green, and **hand the user a ready-to-copy prompt for the next session**.
 - **Waiting rule:** whenever work pauses on a background task, tell the user in one clear line what is running and that they need to do nothing.
 - Report failures plainly (failing tests = show output); never mark an increment done without its acceptance criteria demonstrated on the deployed URL.
 

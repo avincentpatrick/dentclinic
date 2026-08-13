@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import { Users } from "lucide-react";
-import { archivePatient, restorePatient } from "@/app/actions/patients";
+import { archivePatient, restorePatient, restorePatientById } from "@/app/actions/patients";
 import { DataTable, type Column } from "@/components/shared/DataTable";
 import { DataTableSkeleton } from "@/components/shared/DataTable.skeleton";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -90,7 +90,7 @@ export default async function Page({ searchParams }: PageProps<"/patients">) {
           title="Patient archived"
           description="The record is out of the active list. Nothing was deleted."
           actionLabel="Undo"
-          undoPatientId={undoId}
+          onUndo={restorePatientById.bind(null, undoId)}
         />
       )}
 

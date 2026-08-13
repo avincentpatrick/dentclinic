@@ -30,15 +30,21 @@ npm run check              # lint + typecheck + contrast + docs sync + route cov
 npm run verify             # everything, exactly as CI runs it
 ```
 
-**GitHub Actions is still blocked by the account's billing state** — re-confirmed 2026-08-13,
-when a push produced a run that failed in two seconds with zero steps and the annotation
-*"The job was not started because recent account payments have failed or your spending limit
-needs to be increased."* CI will not run these until that is resolved.
+> **Corrected 2026-08-14.** This paragraph claimed *"GitHub Actions is still blocked by the
+> account's billing state"* and that *"CI will not run these until that is resolved"*. That
+> stopped being true on 2026-08-13, when the repo was made public and Actions became free —
+> `PROGRESS.md` has recorded CI as green end to end since. Left visible rather than deleted,
+> in the same register as the `layouts`-group correction below: a doc that describes the
+> project's gating as broken when it is not is how someone concludes the gates do not matter.
 
-That is precisely why every gate is a local npm script: `npm run verify` reproduces CI
-offline, and it is the only thing standing between a regression and the deployed URL. Keep it
-that way even after billing is fixed — a gate that only exists in a workflow file cannot be
-run before you commit.
+Every gate is nevertheless a local npm script, and that is the load-bearing design: `npm run
+verify` reproduces CI **offline**, and it is the last thing between a regression and the
+deployed URL. Keep it that way — a gate that only exists in a workflow file cannot be run
+before you commit.
+
+`npm run test:authed` is deliberately **not** part of `verify` (see below): it needs a
+service-role key and the network, and `verify`'s offline claim is worth more than the extra
+coverage in that one command. It belongs to the session-end ritual instead.
 
 ## The audit bypass — and why it cannot reach production
 
@@ -70,9 +76,45 @@ both themes and all four font steps, on every `npm run test:a11y`.
 
 What it **does not prove**: the real data path; row menus, whose props are server actions
 (which is why the `SoftDeleteMenu` entry has no specimens); and the authenticated shell
-around the page. A real auth fixture (service-role `generateLink` → `storageState`, skipped
-unless its env var is set so `npm run verify` stays offline) is the tracked next step, not a
-replacement for either.
+around the page.
+
+## The authenticated suite — LIVE since 2.2d
+
+`npm run test:authed` signs in as a real superadmin and a real patient, visits **every**
+authenticated route including the dynamic ones, and asserts three things per route: HTTP 200
+from the response object, exactly one non-empty `<h1>`, and an axe pass. It also asserts the
+other direction — that a patient hitting `/admin` lands on `/home`, and a superadmin hitting
+`/home` lands on `/dashboard`.
+
+**It exists because 2.2b shipped six routes that returned 500 to every superadmin who opened
+them, past a fully green `npm run verify`** (PROGRESS decision 22). A 500 renders no `<h1>`,
+which is what makes the heading assertion catch that whole class. Before it was trusted, the
+decision-22 bug was deliberately reintroduced and the suite confirmed to catch it — along with
+a bogus route, an inverted role assertion and an emptied storageState.
+
+Two things this doc previously assumed, both wrong and worth recording:
+
+- **It does not need hand-forged chunked `sb-*-auth-token` cookies.** `/auth/confirm` is
+  already a public route handler that calls `verifyOtp` on a `token_hash`, so replaying an
+  admin-generated magic link makes *the app* mint its own session. Nothing in the fixture knows
+  how Supabase stores a session, which is what stops it breaking when that changes.
+- **It is not slow.** 42 checks in about a minute.
+
+One local-only trap, measured while building it: on the standalone server a **route handler's**
+`NextResponse.redirect` serialises as an absolute URL whose host is `localhost`, while
+middleware's serialises relative. With `baseURL` at `127.0.0.1` that hop crosses an origin, so
+the session cookie is set correctly and then simply not sent — which looks exactly like a
+rejected token and is not. The fixture therefore does not follow that redirect. Production is
+unaffected: on Workers the incoming request URL is absolute with the real host.
+
+**It is opt-in, and silence about that would be the bug.** `playwright.config.ts` omits the
+projects entirely unless `SUPABASE_SERVICE_ROLE_KEY` is set — nothing in the test path loads
+`.env.local`, so `npm run verify` stays offline — and it prints a line saying so every time it
+does. A gate that quietly does not run is worse than no gate, because its absence reads as a
+pass (PROGRESS decision 25).
+
+Not in CI, by choice: the repo is public, and a service-role key in Actions secrets is a
+bigger change than the coverage is worth right now.
 
 Instead, `A11Y_AUDIT=1` bypasses the gate. Four independent reasons it is safe:
 

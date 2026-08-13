@@ -63,7 +63,8 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
     title: "Feedback",
     description: "Bug reports and suggestions filed by anyone using the system.",
     icon: MessageSquareWarning,
-    availability: "Arrives in Phase 2.2d",
+    href: "/admin/feedback",
+    availability: "Available",
   },
   {
     id: "clinic",

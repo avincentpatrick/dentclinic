@@ -4,15 +4,15 @@ Legend: ⬜ not started · 🔵 in progress · ✅ done · ⛔ blocked · 🔁 r
 
 ## Snapshot
 
-- **Current phase:** 2 — Patients, lookups, settings, email (2.0 ✅ · 2.1a–d ✅ · 2.2a ✅ · 2.2b ✅ · **2.2c ⛔ deferred** → next: 2.2d feedback)
+- **Current phase:** 2 — Patients, lookups, settings, email (2.0 ✅ · 2.1a–d ✅ · 2.2a ✅ · 2.2b ✅ · **2.2c ⛔ deferred** · 2.2d ✅ → next: **Phase 3, scheduling engine**)
 - **Deployed URL:** https://dentclinic.dentclinic-appointment-and-recording-system.workers.dev
-- **Supabase:** dentclinic `csslnpmjprfuzofomtda` (ap-southeast-1, dedicated account) — migrations **0001–0014** applied
+- **Supabase:** dentclinic `csslnpmjprfuzofomtda` (ap-southeast-1, dedicated account) — migrations **0001–0015** applied
 - **Repo:** github.com/avincentpatrick/dentclinic — **PUBLIC since 2026-08-13** (to unblock Actions; see 17-ops.md for what that changed)
-- **CI:** green end to end. Worker **1.28 MB** gzip (43% of 3 MB). 32 a11y tests, 29 routes.
+- **CI:** green end to end. Worker **1.31 MB** gzip (43.6% of 3 MB). 32 a11y tests + **42 authenticated-route tests** (`npm run test:authed`, opt-in), 32 routes.
 - **Brand hue:** 195 (teal-cyan), live from `clinic_branding` — now editable **from `/admin/branding`**, proven on the deployed URL
 - **Deferred:** **2.2c email** — no free sending provider reachable and no domain (decisions 23–24). Phase 5 reminders depend on it; nothing before then does.
-- **Blocked on user:** **Cloudflare API token needs `D1 Edit`** (gates the branding tag cache only — see 17-ops.md; the app is correct without it, just uncached)
-- **Last session:** 2026-08-13
+- **Blocked on user:** **Cloudflare API token needs `D1 Edit`** (gates the branding tag cache only — see 17-ops.md; the app is correct without it, just uncached). Re-checked 2026-08-14 with `npx wrangler d1 list`: still `Authentication error [code: 10000]`.
+- **Last session:** 2026-08-14
 
 ## Phase 0 — Foundation & ops spine
 
@@ -102,7 +102,15 @@ Legend: ⬜ not started · 🔵 in progress · ✅ done · ⛔ blocked · 🔁 r
   - [x] Three more `layouts` gallery entries (lookups list, lookups form, profile); 32 a11y tests still green
   - [x] **Live acceptance 49/49** on the deployed URL, including the `params` trap, the 10-minute rejection, archive/restore, built-in rows, currency formatting, and an injected `email` field failing to change `patients.email`
 - [ ] ⛔ **2.2c email + DNS panel — DEFERRED** (see decision 24). Not started; no partial work to unpick.
-- [ ] 2.2d feedback · 2.2e close
+- [x] 2.2d feedback + the authenticated-route fixture ✅
+  - [x] **The auth fixture 2.2b's six 500s argued for** — service-role `generateLink` replayed at `/auth/confirm`, so the APP mints the session and nothing forges a cookie. Superadmin + patient storage states, one real id resolved per dynamic route, **42 checks**: HTTP 200 off the response object, exactly one non-empty `<h1>`, axe, and the denial direction (patient → `/home`, superadmin → `/dashboard`)
+  - [x] **Every new assertion negative-tested before being trusted** — bogus route (404 caught by the status check), inverted denial, emptied storageState, and *the decision-22 render-prop bug deliberately reintroduced*: build green, fixture red with `Functions cannot be passed directly to Client Components` → 500
+  - [x] **2.2b re-verified through it**: all 11 lookups routes + `/admin` + `/admin/branding` + `/profile` render 200 with a heading and pass axe
+  - [x] Migration **0015** `feedback_reports` + 3 enums + a BEFORE guard + a **narrow** status/`deleted_at` audit trigger + RLS. **Verified 54/54 before any UI existed**, and this time the verification is **committed** (`supabase/verify/0015-feedback.sql`)
+  - [x] `/feedback` (all roles, in `(shared)`), `/admin/feedback` + `/admin/feedback/[id]` triage; `FeedbackStatusChip`/`FeedbackSeverityChip` reusing already-swept tokens; two `layouts` gallery entries
+  - [x] `check:routes` extended to **nav.ts hrefs** and to the `ROUTE_PATTERNS`↔`AppRoutes` set-equality; all four arms negative-tested. It found `/availability` linked from the doctor sidebar with no page behind it — live, and the same bug as `/admin` in 2.2a
+  - [x] **Live acceptance 27/27 on the deployed URL** — filed from a real patient chart, stored as `/patients/[id]`, triaged new → in_progress, exactly one audit row carrying only the status keys, no email anywhere
+- [ ] 2.2e close
 
 ### Decisions this phase (do not re-litigate)
 
@@ -138,8 +146,130 @@ Legend: ⬜ not started · 🔵 in progress · ✅ done · ⛔ blocked · 🔁 r
 
 25. **`check:routes` now also asserts every `ADMIN_SECTIONS` href resolves to a real route.** 2.2b shipped `/admin/lookups` working but **unlinked** — the hub still described it as "Arrives in Phase 2.2b" with no href, so the only way in was typing the URL. `AdminSectionGrid` makes an *unbuilt* section unrepresentable as a link, but nothing checked the other direction. **The acceptance assertion that should have caught it was `(await page.goto(…)) && true` — always truthy, incapable of failing.** A check that cannot fail is worse than no check, because it reads as coverage in the results. The new gate was negative-tested (pointed at a bogus route, confirmed exit 1) before being trusted, and the hub link is now verified by clicking it on the deployed site rather than by asserting a truthy value.
 
+26. **The auth fixture replays a magic link; it does not forge cookies.** `06-accessibility.md`
+    had called this "fragile and slow" since 2.2a on the assumption it needed hand-forged
+    chunked `sb-*-auth-token` cookies. It does not: `/auth/confirm` is already a public route
+    handler that calls `verifyOtp` on a `token_hash`, so a service-role `generateLink` replayed
+    at it makes **the app** mint its own session — cookie chunking, middleware pass and all.
+    Nothing in the fixture knows how Supabase stores a session, which is what stops it breaking
+    when that changes. `type: "magiclink"` over `invite`/`signup` on purpose: it FAILS for an
+    unknown address instead of silently creating a user.
+
+    **It is opt-in and says so out loud.** Nothing in the test path loads `.env.local`, so
+    `SUPABASE_SERVICE_ROLE_KEY` is absent by default, the projects are not registered, and
+    `npm run verify` stays offline and unchanged. `playwright.config.ts` prints a line whenever
+    it omits them — decision 25's lesson is that a gate which quietly does not run is worse
+    than no gate, because its absence reads as a pass. **Not in CI**: the repo is public, and a
+    service-role key in Actions secrets is a bigger change than the coverage is worth. It goes
+    into the session-end ritual in AGENTS.md instead.
+
+    One local-only trap, measured not guessed: on the standalone server a **route handler's**
+    `NextResponse.redirect` serialises absolute with host `localhost`, while middleware's
+    serialises relative. With `baseURL` at `127.0.0.1` that hop crosses an ORIGIN, so the
+    session cookie is set correctly and then simply not sent — indistinguishable from a
+    rejected token. Production is unaffected (Workers hands Next an absolute URL with the real
+    host), which is why magic-link login has always worked live.
+
+27. **`feedback_reports.path` stores a route PATTERN from a closed set — it is not sanitised.**
+    A sanitiser is a function that can be wrong; miss an encoding and a uuid survives, and the
+    table becomes a log of which patient each staff member viewed, readable outside the audit
+    trail that exists to control exactly that. `maskPath` maps the input onto `ROUTE_PATTERNS`
+    and returns a member of it or `null`: the id is not stripped, **the string is discarded and
+    replaced by the pattern it matched**. `check:routes` asserts that list set-equals Next's
+    `AppRoutes`, both directions, and a CHECK constraint says it again in the database for the
+    PostgREST-direct case — every segment must be a bracketed placeholder or a ≤25-character
+    lowercase slug, so a uuid and a numeric patient number are *unrepresentable*. Rejected: a
+    seeded route table or an enum, either of which would need a migration per new route,
+    forever, to close a gap two layers already close.
+
+28. **The narrow audit trigger writes action `'update'`, not a new `status_change` code.**
+    `private.audit_log`'s CHECK (0002) allows eight actions and none of them is that. Amending
+    a shipped constraint to gain a synonym for what an update already is would be a schema
+    change carrying no new information. `after update of status, deleted_at` **plus** an
+    `is distinct from` guard, because `update of` fires when a column is merely mentioned.
+
+29. **No `app_version` column, though `16-feedback.md` listed one.** Nothing threads a build id
+    anywhere, so it would ship and stay null forever — the same smell 2.2b caught itself
+    producing when 0013 seeded a `currency` key nothing could read and the first fix was a
+    helper that pretended to query and returned a constant. Better no column than one that lies
+    by being empty. Same reasoning killed the **`FeedbackDialog`**: the nav link already carries
+    `?from=<pathname>`, which was the dialog's only real justification, so it is polish rather
+    than capability. Both recorded in the module doc rather than silently dropped.
+
+30. **`check:routes` now also covers `nav.ts` hrefs — and found a live 404 on its first run.**
+    Decision 25 added the dangling-link check for `ADMIN_SECTIONS`, but the bug it was written
+    about happened in `nav.ts`: "Clinic settings" linked to `/admin` for two whole phases before
+    the page existed. Pointing the same check at `nav.ts` immediately found **`/availability`**,
+    linked from the doctor sidebar with no page behind it. Removed until Phase 3 builds it,
+    with a comment saying where to put it back. `phase: 3` is an annotation and annotations do
+    not stop a link being clickable.
+
+31. **The verification script is committed this time.** 2.0's 21/21, 2.2a's 39/39 and 2.2b's
+    47/47 were ad-hoc SQL typed into a session — only the counts survive, in this file, so
+    nothing re-runs them. `supabase/verify/0015-feedback.sql` is 54 checks in a transaction that
+    ends in `ROLLBACK`. Writing it caught its own defect and that is the point worth keeping:
+    the self-duplicate check first sat in the staff section, where it **passed while proving
+    nothing** — staff hold no UPDATE policy, so the statement matched zero rows and "succeeded"
+    without ever reaching the constraint. **A write assertion is only an assertion when the
+    actor can write.** The same family as decision 25's always-truthy `goto`.
+
 ## Session log (newest first)
 
+- 2026-08-14: **Phase 2.2d — the gate that was missing, and then the module.** Built in that
+  order deliberately: 2.2b shipped six 500ing routes and an unlinked hub past a fully green
+  `npm run verify`, so the first thing this session produced was the authenticated-route
+  fixture `06-accessibility.md` has carried as "the tracked next step" since 2.2a — and the
+  second thing it did was re-verify 2.2b with it.
+  The fixture turned out easier than that doc assumed, and the assumption is worth correcting
+  because it is what deferred this for two increments: it does **not** need hand-forged chunked
+  auth cookies. `/auth/confirm` already verifies a `token_hash`, so a service-role
+  `generateLink` replayed at it makes the app mint its own session. 42 checks — every
+  authenticated route including the dynamic ones, asserting HTTP 200 off the response object,
+  exactly one non-empty `<h1>` (a 500 renders none, which is precisely how the 2.2b class
+  escapes), axe, and the denial direction. **Every assertion was negative-tested before being
+  trusted**, including reintroducing the decision-22 render-prop bug: the build stayed green
+  and the fixture went red with `Functions cannot be passed directly to Client Components`.
+  That is the whole argument for the thing, demonstrated rather than asserted.
+  Pointing `check:routes` at `nav.ts` — the file where the original `/admin` 404 lived, and
+  which decision 25's gate never covered — found **`/availability` linked from the doctor
+  sidebar with no page behind it**, live. `phase: 3` is an annotation; annotations do not stop
+  a link being clickable.
+  **Rule 1 of the feedback module is built as a closed-set mapping, not as sanitisation.**
+  `maskPath` returns a member of `ROUTE_PATTERNS` or null, so an id is not stripped from the
+  path — the path is discarded and replaced by the pattern it matched — and `check:routes`
+  asserts that list set-equals Next's own route union in both directions. A CHECK constraint
+  repeats it in the database for anyone POSTing straight to PostgREST, shaped so that a uuid
+  and a numeric patient number are unrepresentable rather than merely rejected. Rule 2's narrow
+  trigger writes `'update'` rather than inventing an action code, and records only
+  `{status: …}` / `{deleted_at: …}`; **filing writes no audit row at all**.
+  The data layer was verified **54/54 before any UI existed** — the fourth increment in a row
+  where that was the cheapest part of the work — and this time the script is **committed**, so
+  it can be re-run. Writing it caught its own defect, which is the lesson worth keeping: the
+  self-duplicate check first sat in the staff section, where it passed while proving nothing,
+  because staff hold no UPDATE policy and the statement matched zero rows. A write assertion is
+  only an assertion when the actor can write. Same family as decision 25.
+  Two things were **dropped rather than shipped hollow**: `app_version`, because nothing threads
+  a build id and the column would have been permanently null (the `currency` lesson from 2.2b),
+  and the `FeedbackDialog`, because the nav link already carries `?from=<pathname>` and that was
+  the dialog's only real justification. Both recorded in the module doc as AS BUILT deltas.
+  Also generalised `ToastOnMount`, which imported `restorePatientById` directly and was
+  therefore silently patients-only; it now takes a bound Server Action. `LookupForm` moved to
+  `shared/RecordForm` with a re-export, the same shape `list/query.ts` used in 2.2b. The
+  `layouts` axe group outgrew Playwright's 30s default at seven compositions — decision 6
+  happening one level down — so that test gets 90s and a note that the next addition should
+  split the group rather than raise the number again.
+  Worker 1.28 → **1.31 MB**. 32 a11y + 42 authed green; **live acceptance 27/27** on the
+  deployed URL: filed from a real patient chart, stored as `/patients/[id]`, triaged
+  new → in_progress, exactly one audit row carrying only the status keys, **no email anywhere**.
+  Corrected two stale docs found on the way: `06-accessibility.md` still said Actions was
+  blocked by billing (fixed 2026-08-13 by going public), and `00-overview.md` did not carry the
+  audit exemption `16-feedback.md` already claimed was recorded there. NEXT: **2.2e is closed by
+  this entry — Phase 3.1**, doctor availability + exceptions + blockouts and
+  `get_available_slots` (10-minute grid, buffers in the conflict math, DST-safe). Before writing
+  `appointments`, check `provolatile` for `timestamptz + interval`: PLAN's "GENERATED
+  time_range" may be rejected outright, and 2.2b recorded that a stored generated column may
+  only reference its own row, so 3.2 must COPY the unit counts onto each appointment. Put
+  "Availability" back in the doctor sidebar when 3.1 builds the page.
 - 2026-08-13 (f): **Phase 2.2b — lookups, and the last RPC finally gets a caller.** Four migrations: `appointment_types` + `operatories` (0012), the generic `lookup_categories`/`lookup_values` (0013), and a small correction (0014). The data layer was verified **47/47 before a single component existed**, which is now the third increment in a row where writing the verification first was the cheapest part of the work.
   Two things got written down that the repo had been carrying implicitly. First, **how buffers compose into `time_range`** — PLAN names the columns and the EXCLUDE constraints but never how one becomes the other, and `'[)'` versus `'[]'` is the difference between back-to-back booking working and being impossible. Second, and more consequential for Phase 3: **a stored generated column may only reference its own row**, so `appointments.time_range` can never read `appointment_types`. 3.2 must copy the unit counts onto each appointment — which is also the correct semantics, because re-timing "Crown Prep" must not move next Tuesday's bookings. Also recorded, unresolved on purpose: `timestamptz + interval` is STABLE, not IMMUTABLE, so PLAN's "GENERATED time_range" may simply be rejected. Nothing in 2.2b depends on the answer; Phase 3 must check `provolatile` before writing it.
   **`services` was dropped from PLAN's five lookup categories**, with the owner's agreement: a service a patient books *is* an `appointment_type`, and a second list holding only a name drifts the first time a clinic renames one. **Fees stayed** in the generic table, but with a first-class `numeric(12,2)` amount, a stable `code`, and a written graduation clause in `11-billing.md` — the shape is knowingly incomplete (no effective dates, no per-surface pricing) and survives only because `invoice_items.unit_fee` is copied.

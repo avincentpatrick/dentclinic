@@ -1,11 +1,54 @@
 import os from "node:os";
-import { defineConfig, devices } from "@playwright/test";
+import { defineConfig, devices, type Project } from "@playwright/test";
+import { authedSuiteEnabled, GATE_ENV_VAR } from "./tests/authed/fixtures";
 
 const PORT = 3100;
 const BASE_URL = `http://127.0.0.1:${PORT}`;
 
+/**
+ * The authenticated suite is OPT-IN, and deliberately so.
+ *
+ * It needs a service-role key to mint sessions, which means it needs the
+ * network and a real Supabase project. `npm run verify` claims to be "CI,
+ * offline" and that claim is load-bearing — it is the only gate standing
+ * between a regression and the deployed URL. So nothing in the test path loads
+ * .env.local, the key is absent by default, and these projects simply are not
+ * registered. `npm run test:authed` supplies it explicitly.
+ *
+ * The announcement below is not decoration. PROGRESS decision 25's lesson is
+ * that a gate which silently does not run is worse than no gate, because its
+ * absence looks like a pass — so the omission says so out loud, every time.
+ */
+const authedProjects: Project[] = authedSuiteEnabled()
+  ? [
+      {
+        name: "authed-setup",
+        testDir: "tests/authed",
+        testMatch: /auth\.setup\.ts/,
+        use: { ...devices["Desktop Chrome"] },
+      },
+      {
+        name: "authed",
+        testDir: "tests/authed",
+        testMatch: /.*\.spec\.ts/,
+        dependencies: ["authed-setup"],
+        // No storageState here: routes.spec.ts selects one per describe block,
+        // because the cross-role denial checks need two roles in one file.
+        use: { ...devices["Desktop Chrome"] },
+      },
+    ]
+  : [];
+
+if (authedProjects.length === 0) {
+  console.log(
+    `\n  authenticated route suite NOT RUNNING — ${GATE_ENV_VAR} is not set.\n` +
+      `  This is the default and keeps \`npm run verify\` offline.\n` +
+      `  Run \`npm run test:authed\` to exercise authenticated routes.\n`,
+  );
+}
+
 export default defineConfig({
-  testDir: "tests/a11y",
+  testDir: "tests",
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 1 : 0,
@@ -47,8 +90,12 @@ export default defineConfig({
   },
   use: { baseURL: BASE_URL },
   projects: [
-    { name: "desktop", use: { ...devices["Desktop Chrome"] } },
+    // testDir is pinned per project so the a11y projects keep exactly the scope
+    // they had before tests/authed existed — otherwise both of them would also
+    // run the authenticated specs, twice, against the 2–4 worker cap.
+    { name: "desktop", testDir: "tests/a11y", use: { ...devices["Desktop Chrome"] } },
     // Exercises BottomTabBar + safe areas rather than the sidebar.
-    { name: "mobile", use: { ...devices["Pixel 7"] } },
+    { name: "mobile", testDir: "tests/a11y", use: { ...devices["Pixel 7"] } },
+    ...authedProjects,
   ],
 });

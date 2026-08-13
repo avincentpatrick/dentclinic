@@ -71,6 +71,36 @@ Static. Status *changes* are announced by the call site: wrap the chip in a live
 when it updates in place (Phase 3's queue board), not here — a chip in a list is content,
 not a live region, and `role="status"` on every chip would flood the buffer.
 
+## A fourth vocabulary: feedback (2.2d)
+
+`FeedbackStatusChip` and `FeedbackSeverityChip` join `StatusChip`, `ClinicalChip` and
+`RecordChip`, on the same terms: separate types, so `<StatusChip status="wont_fix" />` is
+unrepresentable and report statuses stay out of `STATUS_KEYS`, which drives the gallery loops
+and the a11y matrix.
+
+```tsx
+<FeedbackStatusChip status="in_progress" />
+<FeedbackSeverityChip severity="blocker" size="sm" />
+```
+
+Two constraints shaped the palette:
+
+- **No new colour tokens.** Every pair reuses one of the 13 already swept by
+  `npm run check:contrast` across all 360 brand hues, or the neutral `muted`/`border` pair.
+  07-contributing.md's rule is that an unlisted token is an unproven token, and the cheapest
+  way to satisfy it is not to invent one.
+- **`--destructive` is not used**, even for `blocker`. It is reserved for destructive
+  *actions*; a severity describes a report, it does not threaten data.
+
+That leaves three attention levels for six statuses, so some colours repeat — `triaged` and
+`in_progress` are both `info`, and three statuses share the neutral pair. This is not a
+colour-only chip: WCAG 1.4.1 forbids colour as the **only** signal, and every chip here still
+carries a distinct label and a distinct icon.
+
+The chip labels are short (`Blocker`) where the form's picker asks a question and answers it in
+a sentence (`Blocking my work`). Those live in `src/lib/feedback/schema.ts` and are not
+duplication — two contexts, two strings, on purpose.
+
 ## A11y
 
 - Icon is `aria-hidden`; the visible text is the accessible name.

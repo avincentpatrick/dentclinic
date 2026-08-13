@@ -11,7 +11,8 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { SIDEBAR_NAV, isActive } from "@/lib/shell/nav";
+import { FEEDBACK_BADGE_ITEM_ID, SIDEBAR_NAV, isActive, navHref } from "@/lib/shell/nav";
+import { NavCountBadge } from "@/components/shell/NavCountBadge";
 import type { AppRole } from "@/lib/roles";
 import { cn } from "@/lib/utils";
 
@@ -20,7 +21,15 @@ import { cn } from "@/lib/utils";
  * from the staff/admin "More" tab. Patients never see it — their five tabs are
  * their entire navigation surface.
  */
-export function MoreSheet({ role, trigger }: { role: AppRole; trigger: React.ReactNode }) {
+export function MoreSheet({
+  role,
+  trigger,
+  feedbackCount = 0,
+}: {
+  role: AppRole;
+  trigger: React.ReactNode;
+  feedbackCount?: number;
+}) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const groups = SIDEBAR_NAV[role];
@@ -47,7 +56,10 @@ export function MoreSheet({ role, trigger }: { role: AppRole; trigger: React.Rea
                   .filter((i) => i.kind === "link")
                   .map((item) => {
                     if (item.kind !== "link") return null;
-                    const { icon: Icon, href, label, id } = item;
+                    const { icon: Icon, label, id } = item;
+                    // navHref, not item.href: "Report a problem" carries the
+                    // screen the user is leaving. See carriesFrom in nav.ts.
+                    const href = navHref(item, pathname);
                     const active = isActive(pathname, item);
                     return (
                       <li key={id}>
@@ -64,6 +76,9 @@ export function MoreSheet({ role, trigger }: { role: AppRole; trigger: React.Rea
                         >
                           <Icon aria-hidden="true" className="size-5 shrink-0" />
                           {label}
+                          {id === FEEDBACK_BADGE_ITEM_ID && (
+                            <NavCountBadge count={feedbackCount} label="new reports" />
+                          )}
                         </Link>
                       </li>
                     );

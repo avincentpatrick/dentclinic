@@ -6,7 +6,8 @@ import { usePathname } from "next/navigation";
 import { PanelLeftClose, PanelLeftOpen, Search } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Separator } from "@/components/ui/separator";
-import { SIDEBAR_NAV, isActive } from "@/lib/shell/nav";
+import { FEEDBACK_BADGE_ITEM_ID, SIDEBAR_NAV, isActive, navHref } from "@/lib/shell/nav";
+import { NavCountBadge } from "@/components/shell/NavCountBadge";
 import { SIDEBAR_COOKIE, SIDEBAR_MAX_AGE, SIDEBAR_RAIL_WIDTH, SIDEBAR_WIDTH } from "@/lib/shell/config";
 import { useCommandK } from "@/components/search/CommandKProvider";
 import type { AppRole } from "@/lib/roles";
@@ -29,12 +30,15 @@ export function AppSidebar({
   defaultCollapsed,
   brandName,
   brandLogoUrl,
+  feedbackCount = 0,
   children,
 }: {
   role: AppRole;
   defaultCollapsed: boolean;
   brandName: string;
   brandLogoUrl?: string | null;
+  /** Unread feedback reports. Superadmin only; 0 for everyone else. */
+  feedbackCount?: number;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -125,10 +129,15 @@ export function AppSidebar({
                     <li key={item.id}>
                       <SidebarLink
                         collapsed={collapsed}
-                        href={item.href}
+                        href={navHref(item, pathname)}
                         label={item.label}
                         icon={item.icon}
                         active={active}
+                        badge={
+                          item.id === FEEDBACK_BADGE_ITEM_ID ? (
+                            <NavCountBadge count={feedbackCount} label="new reports" />
+                          ) : null
+                        }
                       />
                     </li>
                   );
@@ -155,12 +164,19 @@ function SidebarLink({
   label,
   icon: Icon,
   active,
+  badge,
 }: {
   collapsed: boolean;
   href: string;
   label: string;
   icon: React.ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
   active: boolean;
+  /**
+   * Rendered after the label. Suppressed when the rail is collapsed: the label
+   * is sr-only there, so a bare number beside an icon would announce as a
+   * count of nothing in particular.
+   */
+  badge?: React.ReactNode;
 }) {
   const link = (
     <Link
@@ -176,6 +192,7 @@ function SidebarLink({
     >
       <Icon aria-hidden className="size-5 shrink-0" />
       {collapsed ? <span className="sr-only">{label}</span> : label}
+      {!collapsed && badge}
     </Link>
   );
 

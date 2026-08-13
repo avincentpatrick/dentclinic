@@ -19,6 +19,8 @@
     "check:routes": "node scripts/check-routes.mjs",
     "check:size": "node scripts/check-worker-size.mjs",
     "test:a11y": "playwright test",
+    "//test:authed": "Authenticated route smoke + axe. NOT part of `verify`, which must stay offline: this needs a service-role key and a real Supabase project. --env-file loads .env.local so the key never has to be exported by hand; without it playwright.config.ts omits the projects and says so.",
+    "test:authed": "node --env-file=.env.local ./node_modules/@playwright/test/cli.js test --project=authed",
     "lock:refresh": "node scripts/refresh-lock.mjs",
     "verify": "npm run check && npx opennextjs-cloudflare build && npm run check:size && npm run test:a11y"
   },

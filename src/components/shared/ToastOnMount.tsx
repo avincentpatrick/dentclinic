@@ -2,7 +2,6 @@
 
 import { useEffect, useTransition } from "react";
 import { toast } from "sonner";
-import { restorePatientById } from "@/app/actions/patients";
 
 /**
  * The Server-Component → toast handshake.
@@ -15,21 +14,34 @@ import { restorePatientById } from "@/app/actions/patients";
  * `token` is what makes it one-shot in both directions: it is sonner's toast
  * `id`, so React StrictMode's double-invoke and any re-render de-duplicate
  * instead of stacking two toasts, and it is also the effect's dependency.
+ *
+ * UNDO IS A BOUND SERVER ACTION PROP, not a patient id.
+ *
+ * Until 2.2d this component imported `restorePatientById` directly and took an
+ * `undoPatientId`, which made the app's one generic toast surface silently
+ * patients-only — the feedback queue needed the identical archive-with-undo and
+ * could not have it. A Server Action is the ONE kind of function that may cross
+ * the Server→Client boundary (PROGRESS decision 22 is the other half of that
+ * rule), so the caller binds its own and this stays ignorant of what is being
+ * restored.
  */
 export function ToastOnMount({
   token,
   title,
   description,
   actionLabel,
-  undoPatientId,
+  onUndo,
   clearParam = "undo",
 }: {
   token: string;
   title: string;
   description?: string;
   actionLabel?: string;
-  /** Present ⇒ the toast offers Undo, which restores this patient. */
-  undoPatientId?: string;
+  /**
+   * Present ⇒ the toast offers Undo. Must be a Server Action already bound to
+   * whatever it restores, e.g. `restoreReportById.bind(null, id)`.
+   */
+  onUndo?: () => Promise<void>;
   clearParam?: string;
 }) {
   const [, startTransition] = useTransition();
@@ -39,12 +51,12 @@ export function ToastOnMount({
       id: token,
       description,
       action:
-        undoPatientId && actionLabel
+        onUndo && actionLabel
           ? {
               label: actionLabel,
               onClick: () => {
                 startTransition(async () => {
-                  await restorePatientById(undoPatientId);
+                  await onUndo();
                 });
               },
             }

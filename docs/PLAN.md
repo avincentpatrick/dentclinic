@@ -71,7 +71,12 @@ Hard-block overlaps everywhere in v1 (overlap-override machinery CUT). Cancel �
 
 **Migration order** — the original numbering is superseded; the file names in `supabase/migrations/` are the truth. Actual, as applied:
 
-`0001` extensions (btree_gist, pgcrypto, citext) + private schema + helpers → `0002` identity + signup trigger + Custom Access Token Hook + audit_log → `0003` audit_row() hotfix → `0004` user_preferences + clinic_branding view (1.1) → `0005` providers + patients + registry RPCs (2.1) → `0006` patients dob timezone hotfix → `0007` claim_or_create_patient citext hotfix → `0008` find_patient_duplicates match_reason hotfix → `0009` log_read id defaults → `0010` settings write RPC + `private.settings` updated_at trigger (2.2a) → `0011` branding storage bucket + storage.objects policies (2.2a) → `0012` appointment_types + operatories (2.2b) → `0013` lookup_categories + lookup_values (2.2b) → `0014` expose `currency` through clinic_branding (2.2b) → **next: `0015`** email settings (2.2c), `0016` feedback (2.2d).
+`0001` extensions (btree_gist, pgcrypto, citext) + private schema + helpers → `0002` identity + signup trigger + Custom Access Token Hook + audit_log → `0003` audit_row() hotfix → `0004` user_preferences + clinic_branding view (1.1) → `0005` providers + patients + registry RPCs (2.1) → `0006` patients dob timezone hotfix → `0007` claim_or_create_patient citext hotfix → `0008` find_patient_duplicates match_reason hotfix → `0009` log_read id defaults → `0010` settings write RPC + `private.settings` updated_at trigger (2.2a) → `0011` branding storage bucket + storage.objects policies (2.2a) → `0012` appointment_types + operatories (2.2b) → `0013` lookup_categories + lookup_values (2.2b) → `0014` expose `currency` through clinic_branding (2.2b) → `0015` **feedback_reports (2.2d)** → **next: `0016`**.
+
+`0015` was reserved here for 2.2c's email settings. 2.2c is deferred WHOLE (PROGRESS decision
+24 — no free sending provider is reachable without a domain, and nothing was started), so
+there is no half-applied migration holding the number and feedback took it. Email settings get
+whatever number is free when a provider exists.
 
 This ladder has now slid twice, both times because a hotfix consumed a number a plan had spoken for — `0006`/`0007` in 2.0, then `0008`/`0009` in 2.1d. **Take the next free number from `ls supabase/migrations/`, not from this line.**
 

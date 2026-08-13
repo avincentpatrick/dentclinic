@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
  * the same destinations. Never use opacity/visibility here: those leave the
  * links focusable and announced, producing duplicate nav for screen readers.
  */
-export function BottomTabBar({ role }: { role: AppRole }) {
+export function BottomTabBar({ role, feedbackCount = 0 }: { role: AppRole; feedbackCount?: number }) {
   const pathname = usePathname();
   const items = TAB_NAV[role];
 
@@ -29,7 +29,7 @@ export function BottomTabBar({ role }: { role: AppRole }) {
       <ul className="mx-auto flex max-w-md items-stretch">
         {items.map((item) => (
           <li key={item.id} className="flex-1">
-            <TabItem item={item} pathname={pathname} role={role} />
+            <TabItem item={item} pathname={pathname} role={role} feedbackCount={feedbackCount} />
           </li>
         ))}
       </ul>
@@ -46,7 +46,17 @@ function ActiveBar() {
   return <span aria-hidden="true" className="absolute inset-x-3 top-0 h-0.5 rounded-full bg-primary" />;
 }
 
-function TabItem({ item, pathname, role }: { item: NavItem; pathname: string; role: AppRole }) {
+function TabItem({
+  item,
+  pathname,
+  role,
+  feedbackCount,
+}: {
+  item: NavItem;
+  pathname: string;
+  role: AppRole;
+  feedbackCount: number;
+}) {
   const commandK = useCommandK();
 
   if (item.kind === "fab") {
@@ -85,6 +95,7 @@ function TabItem({ item, pathname, role }: { item: NavItem; pathname: string; ro
     return (
       <MoreSheet
         role={role}
+        feedbackCount={feedbackCount}
         trigger={
           <button type="button" className={cn(TAB_CLASS, "text-muted-foreground")}>
             <Icon aria-hidden="true" className="size-5" />

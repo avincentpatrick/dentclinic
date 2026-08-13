@@ -62,6 +62,87 @@ export type Database = {
         }
         Relationships: []
       }
+      feedback_reports: {
+        Row: {
+          body: string
+          created_at: string
+          deleted_at: string | null
+          deleted_by: string | null
+          duplicate_of_id: string | null
+          id: string
+          kind: Database["public"]["Enums"]["feedback_kind"]
+          path: string | null
+          reporter_id: string
+          reporter_role: Database["public"]["Enums"]["app_role"]
+          resolved_at: string | null
+          resolved_by: string | null
+          severity: Database["public"]["Enums"]["feedback_severity"]
+          status: Database["public"]["Enums"]["feedback_status"]
+          title: string
+          triage_note: string | null
+          updated_at: string
+          user_agent: string | null
+          viewport: string | null
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          duplicate_of_id?: string | null
+          id?: string
+          kind?: Database["public"]["Enums"]["feedback_kind"]
+          path?: string | null
+          reporter_id: string
+          reporter_role: Database["public"]["Enums"]["app_role"]
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: Database["public"]["Enums"]["feedback_severity"]
+          status?: Database["public"]["Enums"]["feedback_status"]
+          title: string
+          triage_note?: string | null
+          updated_at?: string
+          user_agent?: string | null
+          viewport?: string | null
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          duplicate_of_id?: string | null
+          id?: string
+          kind?: Database["public"]["Enums"]["feedback_kind"]
+          path?: string | null
+          reporter_id?: string
+          reporter_role?: Database["public"]["Enums"]["app_role"]
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: Database["public"]["Enums"]["feedback_severity"]
+          status?: Database["public"]["Enums"]["feedback_status"]
+          title?: string
+          triage_note?: string | null
+          updated_at?: string
+          user_agent?: string | null
+          viewport?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feedback_reports_duplicate_of_id_fkey"
+            columns: ["duplicate_of_id"]
+            isOneToOne: false
+            referencedRelation: "feedback_reports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "feedback_reports_reporter_id_fkey"
+            columns: ["reporter_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lookup_categories: {
         Row: {
           created_at: string
@@ -513,6 +594,15 @@ export type Database = {
         | "amber"
         | "rose"
         | "slate"
+      feedback_kind: "bug" | "idea" | "question" | "data_issue"
+      feedback_severity: "blocker" | "major" | "minor" | "cosmetic"
+      feedback_status:
+        | "new"
+        | "triaged"
+        | "in_progress"
+        | "resolved"
+        | "wont_fix"
+        | "duplicate"
       font_size_pref: "auto" | "standard" | "comfortable" | "large" | "xlarge"
       lookup_value_kind: "label" | "money"
       patient_sex: "female" | "male" | "other" | "undisclosed"
@@ -654,6 +744,16 @@ export const Constants = {
         "amber",
         "rose",
         "slate",
+      ],
+      feedback_kind: ["bug", "idea", "question", "data_issue"],
+      feedback_severity: ["blocker", "major", "minor", "cosmetic"],
+      feedback_status: [
+        "new",
+        "triaged",
+        "in_progress",
+        "resolved",
+        "wont_fix",
+        "duplicate",
       ],
       font_size_pref: ["auto", "standard", "comfortable", "large", "xlarge"],
       lookup_value_kind: ["label", "money"],
