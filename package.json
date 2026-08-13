@@ -10,14 +10,16 @@
     "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
     "deploy": "node scripts/assert-no-bypass.mjs && opennextjs-cloudflare build && opennextjs-cloudflare deploy",
     "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
-    "typecheck": "tsc --noEmit",
+    "typegen": "next typegen",
+    "typecheck": "npm run typegen && tsc --noEmit",
     "check:contrast": "node scripts/check-contrast.mjs --selftest",
-    "check": "npm run lint && npm run typecheck && npm run check:contrast && npm run check:docs",
+    "check": "npm run lint && npm run typecheck && npm run check:contrast && npm run check:docs && npm run check:routes",
     "check:docs": "node scripts/check-gallery-docs.mjs",
     "check:routes": "node scripts/check-routes.mjs",
     "check:size": "node scripts/check-worker-size.mjs",
     "test:a11y": "playwright test",
-    "verify": "npm run check && npx opennextjs-cloudflare build && npm run check:routes && npm run check:size && npm run test:a11y"
+    "lock:refresh": "node scripts/refresh-lock.mjs",
+    "verify": "npm run check && npx opennextjs-cloudflare build && npm run check:size && npm run test:a11y"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",

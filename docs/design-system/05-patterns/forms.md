@@ -29,8 +29,40 @@ const [state, formAction] = useActionState(createPatient, IDLE);
 </form>
 ```
 
-`action={formAction}` on a plain `<form>` keeps the native POST, so the whole thing works
-with JavaScript disabled. `SubmitButton` is the only client-side enhancement.
+## Write-forms require JavaScript. Reads do not.
+
+This was measured, not assumed, before anything was built on it — and the answer was the
+opposite of what the React docs imply.
+
+A **plain** server action form (`<form action={serverAction}>`) is progressively enhanced:
+React emits `<input type="hidden" name="$ACTION_ID_400e49…">`, a self-contained identifier the
+server resolves on a normal POST. It works with JavaScript off.
+
+A **`useActionState`** form is not. Because `useActionState` binds the previous state as the
+action's first argument, React emits `$ACTION_REF_2` plus serialised bound-argument chunks
+instead of an id. `$ACTION_REF_n` is a reference resolved from the *client* module map at
+submit time, so a no-JS POST reaches the server with nothing it can look up and fails with
+`Failed to find Server Action` (HTTP 500). Verified on a production build of Next 16.3, with a
+plain-action control form on the same page passing in the same request sequence.
+
+**The consequence, stated plainly:** with JavaScript disabled, Phase 2 write-forms do not
+submit at all. They do not silently half-submit, and they do not bypass validation — the
+request never reaches the action.
+
+That is an acceptable trade here, and one property is worth being explicit about: **the
+duplicate check cannot be evaded by disabling JavaScript.** It runs server-side on every
+submit, and without JS there is no submit. Turning JS off removes the ability to create a
+patient; it never creates one unchecked.
+
+What stays no-JS, deliberately, because it is where it matters: the roster, its search, its
+sorting and its pagination are all plain links and a GET form (see
+[DataTable](../04-components/data-table.md), [SearchField](../04-components/search-field.md)),
+so the record is always *readable*. And simple void-returning actions — sign-out,
+`savePreferences` — remain plain server actions and keep their `<noscript>` paths.
+
+**If a form must work without JavaScript, do not use `useActionState`.** Use a plain action
+that `redirect()`s, and carry state in the query string — accepting that it cannot carry the
+submitted values back, and must never carry PHI.
 
 ## The five states, and why they are five
 
@@ -75,9 +107,11 @@ server-rendered hidden input.
 
 That difference is the design: editing a field after seeing a warning changes the hash, so
 the ack no longer matches and the check re-runs. A boolean would let someone dismiss a warning
-about one patient and submit a record for another with the dismissal still attached. Being
-server-rendered is what makes "proceed anyway" work with JavaScript off — and a safety
-mechanism that only works with JS is not a safety mechanism.
+about one patient and submit a record for another with the dismissal still attached.
+
+The ack is server-rendered as a hidden input rather than held in client state, which means it
+is submitted by the form itself and cannot drift from what is on screen. (It is not a no-JS
+affordance — see above; without JS the form does not submit at all.)
 
 ## Inline or toast
 
@@ -94,9 +128,9 @@ from the archived row** — the toast is a convenience, not the only path.
 
 ## Rules
 
-- `noValidate` on every form. The server is the single source of truth, so messages are
-  identical with and without JS and two validators never disagree. `required` on `Field` is
-  advisory (`aria-required` + a visible marker).
+- `noValidate` on every form. The server is the single source of truth, so there is one set of
+  messages and two validators never disagree about what is acceptable. `required` on `Field`
+  is advisory (`aria-required` + a visible marker).
 - Field `name` is the `id` is the `fieldErrors` key. They line up by construction.
 - Always `echo` values back. A form that empties itself on error is how people give up.
 - Always set `autoComplete`.

@@ -27,11 +27,16 @@ and server-returned `fieldErrors` line up without any per-call-site wiring.
 | `"select"` | **native `<select>`** | `options: {value,label}[]`, optional `placeholder` as a disabled empty option |
 | `"checkbox"` | **native `<input type=checkbox>`** | label sits right of the box; the whole row is the target |
 
-Native `<select>` and `<input type="checkbox">` are deliberate, not a shortcut. They submit
-without JavaScript, they get the platform picker on mobile, and they need no roving-focus
-implementation. Radix Select is installed and is still the wrong choice here — it cannot open
-without JS, which is a regression for a form that must degrade. Same reasoning
-[AppearancePanel](appearance-panel.md) gives for using native radios.
+Native `<select>` and `<input type="checkbox">` are deliberate, not a shortcut. They get the
+platform picker on mobile, they need no roving-focus implementation, and they keep the field
+usable in the widest range of assistive tech. Same reasoning
+[AppearancePanel](appearance-panel.md) gives for using native radios rather than a Radix
+RadioGroup.
+
+(Progressive enhancement is *not* among the reasons here: `useActionState` forms require
+JavaScript regardless of which controls they contain — see
+[05-patterns/forms.md](../05-patterns/forms.md). It remains a reason in `AppearancePanel`,
+whose action is a plain void-returning one.)
 
 ## Props
 
@@ -68,8 +73,8 @@ There is no loading state. The whole form goes pending via [SubmitButton](submit
 - The checkbox variant makes the **whole row** the label, so the target is the text and not a
   16px box.
 - `required` sets `aria-required` and a visible "(required)" but **not** the HTML `required`
-  attribute: forms carry `noValidate` so the server is the single source of truth. That keeps
-  the messages identical with and without JavaScript, and avoids two validators disagreeing.
+  attribute: forms carry `noValidate` so the server is the single source of truth. One set of
+  messages, and two validators never disagree about what is acceptable.
 
 ## Do / Don't
 

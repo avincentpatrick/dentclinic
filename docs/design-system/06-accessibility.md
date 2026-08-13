@@ -25,8 +25,8 @@ foreground on a primary background. Both, always.
 
 ```bash
 npm run check:contrast     # palette, ~1s
-npm run test:a11y          # axe + keyboard (needs a build first)
-npm run check              # lint + typecheck + contrast + docs sync
+npm run test:a11y          # axe + keyboard (needs an OpenNext build first)
+npm run check              # lint + typecheck + contrast + docs sync + route coverage
 npm run verify             # everything, exactly as CI runs it
 ```
 

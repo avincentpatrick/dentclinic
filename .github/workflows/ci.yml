@@ -25,14 +25,24 @@ jobs:
 
       # Cheap, deterministic checks first — they fail in seconds rather than
       # after the ~90s build.
+      #
+      # `typecheck` runs `next typegen` first, and that is load-bearing on a
+      # cold runner: LayoutProps/PageProps are GLOBALS Next generates into
+      # .next/types, so on a fresh checkout with no .next, `tsc --noEmit` fails
+      # with "Cannot find name 'LayoutProps'" in every layout. Typegen takes a
+      # second or two, versus reordering the whole workflow to build first.
+      # It also emits routes.d.ts, which is why route coverage can run here
+      # rather than after the build.
       - name: Lint
         run: npm run lint
-      - name: Typecheck
+      - name: Typecheck (incl. next typegen)
         run: npm run typecheck
       - name: Contrast (52 pairs x 360 brand hues x 2 themes)
         run: npm run check:contrast
       - name: Docs / gallery sync
         run: npm run check:docs
+      - name: Route table coverage
+        run: npm run check:routes
 
       # NOTE: A11Y_AUDIT=1 opens /design-system without a session so axe can
       # reach it. THIS ARTIFACT MUST NEVER BE DEPLOYED. This workflow has no
@@ -47,8 +57,6 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
 
-      - name: Route table coverage
-        run: npm run check:routes
       - name: Worker size (3 MB free-tier limit)
         run: npm run check:size
 

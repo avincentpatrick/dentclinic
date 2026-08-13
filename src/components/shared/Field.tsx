@@ -22,9 +22,11 @@ import { Textarea } from "@/components/ui/textarea";
  *    the control) and shipping one without the other is the usual bug.
  *
  * Native controls throughout — `<select>`, `<input type="checkbox">`,
- * `<input type="date">` — for the same reason AppearancePanel uses native
- * radios: they submit without JavaScript, they get the platform picker on
- * mobile, and they need no roving-focus implementation to get right.
+ * `<input type="date">` — for most of the reasons AppearancePanel uses native
+ * radios: the platform picker on mobile, no roving-focus implementation to get
+ * wrong, and the widest assistive-tech support. NOT for progressive
+ * enhancement: useActionState forms require JavaScript whatever controls they
+ * contain (docs/design-system/05-patterns/forms.md).
  */
 
 type Option = { value: string; label: string };

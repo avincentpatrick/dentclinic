@@ -6,8 +6,10 @@
  * silently public — but a denied route is still a bug. This turns "I forgot to
  * register it" into a build failure instead of a 404 someone discovers later.
  *
- * Reads the unions Next generates at build time, so it cannot drift from reality.
- * Requires a prior build.
+ * Reads the unions Next generates, so it cannot drift from reality. `next
+ * typegen` produces them in a second or two without a full build, which is why
+ * `npm run typecheck` runs it first and this can live in the fast `check` gate
+ * instead of behind the ~90s OpenNext build.
  *
  * BOTH unions matter. Next emits pages in `AppRoutes` and route handlers in a
  * separate `AppRouteHandlerRoutes`, and until Phase 2 this script read only the

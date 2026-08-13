@@ -62,9 +62,11 @@ field error. Reserve `disabled` for actions that genuinely cannot run.
 
 **Don't** add a second progress indicator. `aria-busy` plus the label swap is the whole story.
 
-**Don't** treat any of this as load-bearing. With JavaScript off there is no spinner and no
-disabled state, the form still posts, and the browser's own navigation indicator is the
-feedback. Nothing about correctness depends on this file.
+**Don't** assume there is a no-JS fallback behind this. `useActionState` forms do not submit
+without JavaScript at all — React emits `$ACTION_REF_n` rather than a self-contained
+`$ACTION_ID_*`, and the server cannot resolve it. Measured on a production build; see
+[05-patterns/forms.md](../05-patterns/forms.md). Plain void-returning actions (sign-out,
+`savePreferences`) are unaffected.
 
 ## Example
 

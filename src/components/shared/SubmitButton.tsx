@@ -14,14 +14,18 @@ import { Button } from "@/components/ui/button";
  * that is the usual mistake, and it fails silently by simply never going
  * pending.
  *
- * Everything here is enhancement. With JavaScript off there is no spinner and
- * no disabled state, and the form still posts and still works; the browser's
- * own navigation indicator is the progress feedback. Nothing about correctness
- * depends on this file.
- *
  * Disabling while pending is not cosmetic — 00-principles.md forbids optimistic
  * UI for booking and clinical writes, which makes double-submit a real hazard:
  * two POSTs of a patient create are two patients.
+ *
+ * NOTE ON NO-JS: this button is inside a useActionState form, and those do not
+ * submit without JavaScript at all — React emits `$ACTION_REF_n`, a reference
+ * resolved from the client module map, rather than a self-contained
+ * `$ACTION_ID_*`. Measured on a production build; see
+ * docs/design-system/05-patterns/forms.md. So this is not "enhancement over a
+ * working baseline" — there is no no-JS baseline for these forms, by design.
+ * Plain void-returning actions (sign-out, savePreferences) are unaffected and
+ * keep their <noscript> paths.
  */
 export function SubmitButton({
   idleLabel,

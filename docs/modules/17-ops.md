@@ -46,6 +46,41 @@ Keep the clinic's app deployable, its data recoverable, and its paperwork compli
 - `npm run deploy` (needs `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` in env). Worker gzip size 2026-08-12: **~957 KB** (limit 3 MB — check on every phase-end deploy; FullCalendar/Recharts must stay dynamic imports).
 - Supabase migrations: `npx supabase db push` (uses `SUPABASE_ACCESS_TOKEN` + `SUPABASE_DB_PASSWORD`).
 
+## Dependencies & the lock file
+
+**After adding, removing or upgrading any dependency, run `npm run lock:refresh` before
+pushing.** It regenerates `package-lock.json` inside `node:24-bookworm` — the same image
+family CI uses — and then asserts the result is not platform-pruned.
+
+Why this is not optional: npm resolves platform-specific optional dependencies for the
+platform it runs on and prunes the rest. A lock generated on Windows carries one
+`@next/swc-*`, one `@tailwindcss/oxide-*` and two `@img/sharp-*` binaries; `npm ci` on an
+ubuntu runner demands eight, eleven and twenty-four. CI then fails at **install time, before
+a single gate runs**, which is what happened the first time Actions were able to execute in
+Phase 2. Plain `npm install` on Windows or macOS will silently re-prune the lock, so treat
+that as a local-only side effect.
+
+Two related traps, both hit once:
+
+- **Node majors must match.** Dev on Node 24 (npm 11) with CI pinned to Node 22 (npm 10)
+  produced a lock one side wrote and the other rejected. Both workflows now pin **24**;
+  change them together or not at all. `npm run verify` claims to be CI offline and that claim
+  is void if the npm majors differ.
+- **Never bind-mount the repo into a container and run a real `npm ci`/`npm install`.** It
+  writes Linux binaries into the host's `node_modules` and leaves the working copy unrunnable
+  until a local `npm ci`. `scripts/refresh-lock.mjs` uses `--package-lock-only` precisely to
+  avoid this; do not drop that flag.
+
+**`shadcn` is a build dependency, not just a CLI.** `src/app/globals.css:3` does
+`@import "shadcn/tailwind.css"`, so removing it from `devDependencies` does not merely cost
+you the `add` command — every page 500s with `Can't resolve 'shadcn/tailwind.css'`. It looks
+like a scaffolding tool in `package.json` and is not one.
+
+There is also an `overrides` block in `package.json` pinning the three `@emnapi/*` packages.
+Two dependencies pin conflicting versions of them inside the wasm32-wasi fallback branch, and
+npm 11 writes a lock for that graph which its own `npm ci` rejects. They are WebAssembly
+fallbacks never loaded on x64, so collapsing them costs nothing. Remove when npm fixes it.
+
 ## Compliance (PH Data Privacy Act) — Phase 9 checklist
 - [ ] Designate DPO; register with NPC if thresholds met
 - [ ] Privacy notice + consent capture in registration flow

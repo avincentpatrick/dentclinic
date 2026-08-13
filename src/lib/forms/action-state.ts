@@ -14,8 +14,8 @@
  *   invalid" banner over a form with no field marked.
  *
  * - `values` is echoed back on every non-success state so a failed submit never
- *   empties the form. With `useActionState` this survives the server round trip
- *   whether or not JavaScript is running.
+ *   empties the form — the server round trip re-renders the inputs with what
+ *   the user typed, including the part that was rejected.
  *
  * - `confirm` is a soft stop: valid input, but something a human should look at
  *   first. It is not an error and must never be styled as one.
@@ -33,6 +33,9 @@ export type Values<F extends string> = Partial<Record<F, string>>;
  * ack no longer matches and the check RE-RUNS. A boolean would let a user
  * dismiss a warning about Maria Santos and then submit a record for someone
  * else entirely, with the dismissal still attached.
+ *
+ * It rides as a server-rendered hidden input rather than client state, so it is
+ * submitted by the form itself and cannot drift from what is on screen.
  *
  * `existingHref` and `proceedLabel` are optional because the patient-facing mode
  * must never render either one — a link or a "create anyway" button would both
@@ -76,9 +79,11 @@ export function formErrorOf<F extends string>(state: ActionState<F>): string | n
 
 /**
  * The ack a `confirm` state is waiting for, so the form can echo it back as a
- * hidden input. Server-rendered on purpose: it is what makes "proceed anyway"
- * work with JavaScript disabled, and a safety mechanism that only works with JS
- * is not a safety mechanism.
+ * hidden input rather than hold it in client state — it is then submitted by
+ * the form itself and cannot drift from the values on screen.
+ *
+ * The check it acknowledges is unbypassable regardless: it runs server-side on
+ * every submit, and a submit is the only way in.
  */
 export function ackOf<F extends string>(state: ActionState<F>): string | null {
   return state.status === "confirm" ? state.confirm.ack : null;

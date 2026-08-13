@@ -2,9 +2,27 @@ import { CalendarClock, Inbox } from "lucide-react";
 import { ErrorEmptyStateSpecimen } from "@/components/gallery/specimens/ErrorEmptyStateSpecimen";
 import { ClinicalChip, StatusChip, CLINICAL_LEVELS, STATUS_KEYS } from "@/components/shared/StatusChip";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { DataTable, type Column } from "@/components/shared/DataTable";
+import { DataTableSkeleton } from "@/components/shared/DataTable.skeleton";
 import { Field } from "@/components/shared/Field";
 import { InlineAlert } from "@/components/shared/InlineAlert";
+import { SearchField } from "@/components/shared/SearchField";
 import { SubmitButton } from "@/components/shared/SubmitButton";
+
+/** Fixtures for the DataTable specimens. Invented people, never real rows. */
+type DemoPatient = { id: string; patient_number: string; full_name: string; dob: string };
+
+const PATIENT_ROWS: DemoPatient[] = [
+  { id: "1", patient_number: "P00001", full_name: "Maria Santos", dob: "4 May 1990" },
+  { id: "2", patient_number: "P00002", full_name: "Andres Bonifacio", dob: "30 Nov 1985" },
+  { id: "3", patient_number: "P00003", full_name: "Josefa Llanes", dob: "19 Feb 2011" },
+];
+
+const PATIENT_COLUMNS: Column<DemoPatient>[] = [
+  { id: "full_name", header: "Name", cell: (p) => p.full_name, sortable: true, card: "title" },
+  { id: "patient_number", header: "No.", cell: (p) => p.patient_number, card: "meta" },
+  { id: "dob", header: "Date of birth", cell: (p) => p.dob, sortable: true, card: "meta" },
+];
 import { PageHeader } from "@/components/shell/PageHeader";
 import { UserChipSkeleton } from "@/components/shell/UserChip.skeleton";
 import { Button } from "@/components/ui/button";
@@ -244,6 +262,114 @@ export const registry: GalleryEntry[] = [
           <form action={() => {}}>
             <SubmitButton idleLabel="Send test email" pendingLabel="Sending…" disabled />
           </form>
+        ),
+      },
+    ],
+  },
+  {
+    id: "data-table",
+    name: "DataTable",
+    group: "shared",
+    doc: "docs/design-system/04-components/data-table.md",
+    description:
+      "Server-rendered table, card list on phones. All state in the URL — no TanStack, no client JS.",
+    specimens: [
+      {
+        name: "Populated",
+        note: "Resize past md to see the same columns become a card list. Both render; display:none picks one.",
+        render: () => (
+          <DataTable
+            caption="Example roster"
+            columns={PATIENT_COLUMNS}
+            rows={PATIENT_ROWS}
+            rowKey={(p) => p.id}
+            baseHref="/design-system"
+            params={{}}
+            sort={{ by: "full_name", dir: "asc" }}
+            page={{ index: 0, size: 25, total: 3 }}
+            empty={null}
+          />
+        ),
+      },
+      {
+        name: "Filtered empty",
+        note: "NOT an EmptyState: telling a clinic with 400 patients that it has none is the bug this prevents.",
+        render: () => (
+          <DataTable
+            caption="Example roster"
+            columns={PATIENT_COLUMNS}
+            rows={[]}
+            rowKey={(p) => p.id}
+            baseHref="/design-system"
+            params={{}}
+            page={{ index: 0, size: 25, total: 0 }}
+            empty={null}
+            filter={{ active: true, label: "“santos”", clearHref: "/design-system" }}
+          />
+        ),
+      },
+      {
+        name: "Paginated",
+        render: () => (
+          <DataTable
+            caption="Example roster"
+            columns={PATIENT_COLUMNS}
+            rows={PATIENT_ROWS}
+            rowKey={(p) => p.id}
+            baseHref="/design-system"
+            params={{}}
+            page={{ index: 1, size: 25, total: 412 }}
+            empty={null}
+          />
+        ),
+      },
+      {
+        name: "Loading",
+        render: () => <DataTableSkeleton rows={3} columns={3} />,
+      },
+    ],
+  },
+  {
+    id: "soft-delete-menu",
+    name: "SoftDeleteMenu",
+    group: "shared",
+    doc: "docs/design-system/04-components/soft-delete-menu.md",
+    description:
+      "Archive / Restore for one row. Never 'Delete' — there is no DELETE grant on any table.",
+    // No specimens on purpose. Its props are SERVER ACTIONS, and an inline
+    // async function cannot cross the server→client boundary — only a real
+    // "use server" reference can, which the gallery's eslint rule forbids
+    // importing. 07-contributing.md sanctions an empty specimen list with a
+    // pointer to the live instance for exactly this case.
+    specimens: [],
+  },
+  {
+    id: "search-field",
+    name: "SearchField",
+    group: "search",
+    doc: "docs/design-system/04-components/search-field.md",
+    description: "GET-form list filter. The query lives in the URL, so results are shareable and back-navigable.",
+    specimens: [
+      {
+        name: "Empty",
+        render: () => (
+          <div className="max-w-md">
+            <SearchField action="/design-system" label="Search the example roster" placeholder="Search patients…" />
+          </div>
+        ),
+      },
+      {
+        name: "With a query",
+        note: "Clear is a link to the unfiltered URL, so it works without JavaScript.",
+        render: () => (
+          <div className="max-w-md">
+            <SearchField
+              action="/design-system"
+              label="Search the example roster"
+              placeholder="Search patients…"
+              defaultValue="santos"
+            />
+          </div>
         ),
       },
     ],
