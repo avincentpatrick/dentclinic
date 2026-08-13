@@ -20,6 +20,11 @@ export const BRAND_PAIRS = [
   { fg: "foreground", bg: "muted", level: "text" },
   { fg: "muted-foreground", bg: "background", level: "text" },
   { fg: "muted-foreground", bg: "muted", level: "text" },
+  // Secondary text on a raised surface. --card is a DIFFERENT lightness from
+  // --background (--l-surface vs --l-canvas), so the pair above does not cover
+  // it. Introduced by the admin hub's cards in 2.2a, which put a description
+  // and an availability line inside a --card panel.
+  { fg: "muted-foreground", bg: "card", level: "text" },
   // The toast surface. --popover aliases --card, whose foreground pair is
   // already swept, but an unlisted token is an unproven token (07-contributing
   // step 5) and this one now carries an Undo control.

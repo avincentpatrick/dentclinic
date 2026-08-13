@@ -22,13 +22,26 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: {
-    default: "DentClinic",
-    template: "%s · DentClinic",
-  },
-  description: "Book and manage your dental care.",
-};
+/**
+ * Generated rather than static, so renaming the clinic actually renames it.
+ *
+ * This was hardcoded to "DentClinic" until 2.2a, which would have made the
+ * browser tab the one visible place a rename silently failed — the sidebar and
+ * the landing heading would say "Sunrise Dental" while every tab still said
+ * DentClinic. The route is already dynamic (the root layout reads cookies and
+ * headers), so resolving this costs nothing, and `getBranding()` is deduped by
+ * `cache()` with the call below.
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  const { clinicName, tagline } = await getBranding();
+  return {
+    title: {
+      default: clinicName,
+      template: `%s · ${clinicName}`,
+    },
+    description: tagline ?? "Book and manage your dental care.",
+  };
+}
 
 export const viewport: Viewport = {
   // Required for env(safe-area-inset-*) — the bottom tab bar lands in Phase 1.2.

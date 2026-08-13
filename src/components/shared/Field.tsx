@@ -92,6 +92,25 @@ export type FieldProps = Common &
         min?: never;
         max?: never;
       }
+    | {
+        as: "file";
+        accept?: string;
+        /**
+         * Client-only. A Server Component cannot pass a function across the
+         * boundary, so a specimen renders this variant without one.
+         */
+        onChange?: React.ChangeEventHandler<HTMLInputElement>;
+        type?: never;
+        options?: never;
+        rows?: never;
+        defaultValue?: never;
+        defaultChecked?: never;
+        placeholder?: never;
+        autoComplete?: never;
+        inputMode?: never;
+        min?: never;
+        max?: never;
+      }
   );
 
 /** The 44px + 1rem floor. `md:text-base` is what cancels the primitive's `md:text-sm`. */
@@ -192,6 +211,28 @@ export function Field(props: FieldProps) {
             </option>
           ))}
         </select>
+      ) : props.as === "file" ? (
+        /**
+         * The one variant that CANNOT echo. Browsers forbid setting a file
+         * input's value, so there is no `defaultValue` to restore and a
+         * rejected submit would silently lose the user's choice — a real
+         * exception to forms.md's "always echo values back".
+         *
+         * BrandingForm sidesteps it by uploading before the settings form is
+         * submitted and carrying the result in a hidden text input, so a
+         * rejected save never costs the upload. That is a second, independent
+         * reason for the two-phase design beyond the 1 MB action body limit.
+         */
+        <Input
+          type="file"
+          accept={props.accept}
+          onChange={props.onChange}
+          className={cn(
+            CONTROL,
+            "py-2 file:mr-3 file:min-h-9 file:rounded-md file:border-0 file:bg-secondary file:px-3 file:text-secondary-foreground",
+          )}
+          {...a11y}
+        />
       ) : (
         <Input
           type={props.type ?? "text"}

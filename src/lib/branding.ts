@@ -1,5 +1,12 @@
 import { cache } from "react";
-import { createClient } from "@/lib/supabase/server";
+import { unstable_cache } from "next/cache";
+import { createAnonClient } from "@/lib/supabase/anon";
+import {
+  DEFAULT_BRAND_HUE,
+  DEFAULT_CLINIC_NAME,
+  normalizeHue,
+  type Branding,
+} from "@/lib/settings/branding-schema";
 
 /**
  * Clinic branding — read from the public `clinic_branding` view.
@@ -8,27 +15,50 @@ import { createClient } from "@/lib/supabase/server";
  * anon/authenticated) and exposes just the four non-secret keys, so the public
  * landing page and the Phase 9 PWA manifest can read it without a session.
  *
- * Caching matters here: this value changes roughly never but is read in the
- * root layout on every request, and the database is in ap-southeast-1 while the
- * worker runs at the edge. Two layers:
- *   - `cache()` dedupes within a single render pass;
- *   - a module-level TTL memo survives across requests in a warm Worker isolate.
- * OpenNext has no incremental cache configured yet, so `unstable_cache` would
- * have nowhere to persist — revisit in Phase 2.2 when the branding screen needs
- * `revalidateTag`. Until then a stale hue for at most TTL seconds is harmless.
+ * Caching matters here: the value changes roughly never but is read in the root
+ * layout on EVERY request, and the database is in ap-southeast-1 while the
+ * worker runs at the edge. Three layers, each earning its place:
+ *
+ *   - `cache()` dedupes within a single render pass (the root layout and
+ *     AppShell both call it);
+ *   - `unstable_cache` persists across requests AND isolates, in Workers KV;
+ *   - `updateTag(BRANDING_TAG)` from the settings action drops it, strongly
+ *     consistently, via the D1 tag cache. `updateTag` rather than
+ *     `revalidateTag`: the latter's recommended `"max"` profile is
+ *     stale-while-revalidate, which would serve the OLD branding to the first
+ *     visitor after a save.
+ *
+ * THE MODULE-LEVEL TTL MEMO THIS REPLACED IS GONE, AND MUST NOT COME BACK.
+ * A module variable lives in one isolate; `revalidatePath` knows nothing about
+ * it; and Cloudflare runs many isolates. So a save in isolate A could not reach
+ * isolate B, and the worst case was five minutes of stale hue with no way to
+ * shorten it. Putting a short memo in front of this cache would shadow it and
+ * reintroduce exactly that, in miniature.
+ *
+ * WHY NOT `use cache`. `unstable_cache` is marked in Next 16's docs as replaced
+ * by the `use cache` directive — but that requires `cacheComponents: true`,
+ * which enables PPR by default, switches navigation to React `<Activity>`, and
+ * changes prefetching. PROGRESS decision 8 rests on the current prefetch model:
+ * without Cache Components a dynamic route is not prefetched at all unless it
+ * has a `loading.tsx`, which is why `/patients` deliberately has none and why
+ * the read audit there is currently sound. Enabling the flag would invert that
+ * premise and rest the audit's correctness on "a prefetch presumably does not
+ * render the dynamic hole". Next ships a maintained guide for this exact
+ * pre-Cache-Components model, so it is a supported path rather than a holdout.
+ * Migration, when the flag is eventually adopted, is one function — and the
+ * tag invalidation call is byte-identical either way.
  */
 
-export const DEFAULT_BRAND_HUE = 195;
-export const DEFAULT_CLINIC_NAME = "DentClinic";
+export const BRANDING_TAG = "clinic-branding";
 
-const TTL_MS = 5 * 60_000;
+/**
+ * A ceiling, not the mechanism. Tag revalidation is what makes a save visible;
+ * this only bounds how long a LOST revalidation could persist.
+ */
+const BRANDING_REVALIDATE_S = 3600;
 
-export type Branding = {
-  clinicName: string;
-  tagline: string | null;
-  logoUrl: string | null;
-  brandHue: number;
-};
+export { DEFAULT_BRAND_HUE, DEFAULT_CLINIC_NAME, normalizeHue };
+export type { Branding };
 
 const FALLBACK: Branding = {
   clinicName: DEFAULT_CLINIC_NAME,
@@ -37,45 +67,63 @@ const FALLBACK: Branding = {
   brandHue: DEFAULT_BRAND_HUE,
 };
 
-let memo: { at: number; value: Branding } | null = null;
-
-/**
- * Normalising into [0, 360) is a security control, not hygiene: the result is
- * interpolated into an inline `style` attribute on <html> and originates in a
- * database row that superadmins will be able to edit from Phase 2.2.
- */
-export function normalizeHue(input: unknown): number {
-  const n = typeof input === "number" ? input : Number(input);
-  if (!Number.isFinite(n)) return DEFAULT_BRAND_HUE;
-  return Math.round(((n % 360) + 360) % 360);
-}
-
-export const getBranding = cache(async (): Promise<Branding> => {
-  if (memo && Date.now() - memo.at < TTL_MS) return memo.value;
-
+/** One read of the view. Returns null on ANY failure — see `cachedBranding`. */
+async function fetchBranding(): Promise<Branding | null> {
   try {
-    const supabase = await createClient();
+    const supabase = createAnonClient();
     const { data, error } = await supabase
       .from("clinic_branding")
       .select("clinic_name, tagline, logo_url, brand_hue")
       .single();
 
-    if (error || !data) return FALLBACK;
+    if (error || !data) return null;
 
-    const value: Branding = {
+    return {
       clinicName: data.clinic_name ?? DEFAULT_CLINIC_NAME,
       tagline: data.tagline ?? null,
       logoUrl: data.logo_url ?? null,
       brandHue: normalizeHue(data.brand_hue),
     };
-    memo = { at: Date.now(), value };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * THROWS on failure, deliberately, and this is load-bearing.
+ *
+ * `unstable_cache` stores whatever the function RETURNS. Returning FALLBACK on
+ * a transient database blip would pin "DentClinic" and hue 195 into KV for the
+ * whole revalidate window — the precise bug the old module memo avoided by not
+ * memoizing its error path. A rejected promise is not stored, so the next
+ * request simply retries. Do not "simplify" this into a return.
+ */
+const cachedBranding = unstable_cache(
+  async (): Promise<Branding> => {
+    const value = await fetchBranding();
+    if (!value) throw new Error("branding-unavailable");
     return value;
+  },
+  ["clinic-branding"],
+  { tags: [BRANDING_TAG], revalidate: BRANDING_REVALIDATE_S },
+);
+
+export const getBranding = cache(async (): Promise<Branding> => {
+  try {
+    return await cachedBranding();
   } catch {
     // Branding must never be able to take the app down.
     return FALLBACK;
   }
 });
 
-export async function getBrandHue(): Promise<number> {
-  return (await getBranding()).brandHue;
+/**
+ * Bypasses both cache layers.
+ *
+ * For the /admin/branding editor ONLY: a form seeded from a cached read can
+ * write stale values straight back over fresh ones, which is how a second
+ * admin's change silently disappears.
+ */
+export async function getBrandingFresh(): Promise<Branding> {
+  return (await fetchBranding()) ?? FALLBACK;
 }

@@ -13,6 +13,19 @@ Keep the clinic's app deployable, its data recoverable, and its paperwork compli
 | Database/Auth | Supabase project `csslnpmjprfuzofomtda` (ap-southeast-1), **dedicated account** | Free tier: NO built-in backups, pauses after 7 idle days (live clinic traffic prevents this) |
 | Repo/CI | github.com/avincentpatrick/dentclinic (private) | CI: lint/typecheck/build. Backup workflow: nightly 02:00 Manila |
 | Secrets | `.env.local` (git-ignored) + GitHub Actions secrets | `SUPABASE_DB_URL`, `BACKUP_PASSPHRASE` set in repo secrets |
+| Storage | Supabase bucket `branding` (0011) | Public read, 1 MiB, PNG/JPEG/WebP. First bucket in the project |
+
+## Cloudflare API token scopes
+
+`npm run deploy` and `wrangler` read `CLOUDFLARE_API_TOKEN` from `.env.local`. The token needs a
+scope **per resource type**, and a missing one fails at creation time with a bare
+`Authentication error [code: 10000]` that names no permission — so it reads like a bad token
+rather than a narrow one. Being account super-admin does not help: the *token's* permissions are
+what count, not the membership role.
+
+Known-needed so far: Workers Scripts (deploy), Workers KV (the incremental cache).
+**D1 Edit is required for the branding tag cache and was missing when 2.2a was built** — see the
+caching note below. Add scopes at dash.cloudflare.com/profile/api-tokens.
 
 **Free-tier quirk discovered 2026-08-12:** Supabase's 2-active-free-projects limit counts per *user* across every org they own/administer — a second scratch project could not be created even on the dedicated account. Restore drills therefore target the local Supabase stack (Docker); a real disaster restore would reuse the (dead) production slot.
 
@@ -54,6 +67,24 @@ Alternatives, if the decision is ever revisited: make the repo private again and
 billing; or keep it public and push the encrypted dump to a private destination (R2, a private
 repo) rather than leaving it as an artifact of a public run.
 
+## Backup run log
+
+| Date | Trigger | Result |
+|---|---|---|
+| 2026-08-12 18:44Z | `schedule` | **FAIL** — Actions minutes exhausted while the repo was private |
+| 2026-08-13 03:50Z | `workflow_dispatch` | **PASS** — run 31665117218, artifact 17,376 B |
+| 2026-08-13 11:21Z | `workflow_dispatch` | **PASS** — run 31695156146, re-confirmed at the start of 2.2a |
+
+**The `schedule` trigger has still never produced a green run.** Both successes were manual
+dispatches; the only scheduled attempt predates the repo going public. The next natural fire is
+02:00 Manila. Check it before trusting the cron path — a backup that only works when someone
+presses a button is not a backup.
+
+Note on credentials, because the two are easy to conflate: **`SUPABASE_DB_URL` has not been
+rotated** (the repo secret was last updated 2026-08-12, before the repo went public). What was
+rotated on 2026-08-13 was the superadmin *test user's* auth password, published in
+`01-auth-roles.md`, which is not in the backup path at all.
+
 ## Restore drill log
 
 | Date | What was done | Result |
@@ -75,6 +106,51 @@ repo) rather than leaving it as an artifact of a public run.
 - Set `site_url` + `uri_allow_list` to the deployed URL
 - Seed superadmin via `private.settings` key `setup_superadmin_email`
 - SMTP (Brevo) in Auth settings — Phase 2
+
+## Caching: KV + D1, and why it must be both or neither
+
+Phase 2.2a moved branding off a module-level TTL memo and onto Next's Data Cache
+(`unstable_cache` + `updateTag`). For that to persist on Workers, OpenNext needs two overrides:
+
+| Role | Override | Binding | Status |
+|---|---|---|---|
+| Incremental cache | `overrides/incremental-cache/kv-incremental-cache` | `NEXT_INC_CACHE_KV` | namespace created `48bf02a7…` |
+| Tag cache | `overrides/tag-cache/d1-next-tag-cache` | `NEXT_TAG_CACHE_D1` | **blocked — token lacks D1 Edit** |
+
+**The KV tag cache is not an option.** Its own source says it is experimental and that "KV is
+eventually consistent and can take up to 60s to reflect the last write", so a revalidation can
+take a minute to apply. That is *worse* than the five-minute memo it would replace is at its
+best, and worse than the 30s alternative that was considered and rejected. D1 is strongly
+consistent, which is what makes a save visible on the next request.
+
+**Never wire KV without D1.** `defineCloudflareConfig` defaults both overrides to `"dummy"`. With
+both dummy — the state 2.2a shipped in — `unstable_cache` simply never persists, so branding is
+read from Supabase on every request: slower, but always correct, and the acceptance criterion
+still holds. Wiring KV alone would persist entries with **nothing able to invalidate them**,
+turning a 5-minute staleness window into a 1-hour one. That is the one combination that is worse
+than doing nothing.
+
+When the D1 scope is added:
+
+```bash
+npx wrangler d1 create dentclinic-tags --location apac   # match Supabase's ap-southeast-1
+npx wrangler d1 execute dentclinic-tags --remote --command \
+  "CREATE TABLE IF NOT EXISTS revalidations (tag TEXT NOT NULL, revalidatedAt INTEGER NOT NULL, stale INTEGER, expire INTEGER); \
+   CREATE INDEX IF NOT EXISTS idx_revalidations_tag ON revalidations (tag);"
+```
+
+**The table must NOT have a primary or unique key on `tag`.** `writeTags()` issues a bare
+`INSERT` with no `ON CONFLICT`, so a PK there makes the *second* revalidation of any tag throw.
+It is append-only and reads take the `MAX`, which means it grows one row per revalidation —
+negligible for branding saves, but worth a prune if it is ever used for a high-churn tag.
+
+Then add both bindings to `wrangler.jsonc`, set `incrementalCache`/`tagCache` in
+`open-next.config.ts`, and run `npm run cf-typegen`. Both overrides degrade safely if a binding
+goes missing (KV throws `IgnorableError` = cache miss; D1 reports `isDisabled` and
+short-circuits), so a forgotten binding is a performance regression, not an outage.
+
+The a11y suite needs no bindings at all: `scripts/serve-standalone.mjs` runs the plain Next
+standalone build, never `.open-next/worker.js`, so the overrides are never loaded.
 
 ## Deploy runbook
 - `npm run deploy` (needs `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` in env). Worker gzip size 2026-08-12: **~957 KB** (limit 3 MB — check on every phase-end deploy; FullCalendar/Recharts must stay dynamic imports).

@@ -71,7 +71,9 @@ Hard-block overlaps everywhere in v1 (overlap-override machinery CUT). Cancel �
 
 **Migration order** — the original numbering is superseded; the file names in `supabase/migrations/` are the truth. Actual, as applied:
 
-`0001` extensions (btree_gist, pgcrypto, citext) + private schema + helpers → `0002` identity + signup trigger + Custom Access Token Hook + audit_log → `0003` audit_row() hotfix → `0004` user_preferences + clinic_branding view (1.1) → `0005` providers + patients + registry RPCs (2.1) → `0006` patients dob timezone hotfix → `0007` claim_or_create_patient citext hotfix → **next: `0008`** lookups/appointment_types/operatories, `0009` settings RPCs + branding storage, `0010` feedback.
+`0001` extensions (btree_gist, pgcrypto, citext) + private schema + helpers → `0002` identity + signup trigger + Custom Access Token Hook + audit_log → `0003` audit_row() hotfix → `0004` user_preferences + clinic_branding view (1.1) → `0005` providers + patients + registry RPCs (2.1) → `0006` patients dob timezone hotfix → `0007` claim_or_create_patient citext hotfix → `0008` find_patient_duplicates match_reason hotfix → `0009` log_read id defaults → `0010` settings write RPC + `private.settings` updated_at trigger (2.2a) → `0011` branding storage bucket + storage.objects policies (2.2a) → **next: `0012`** appointment_types + operatories (2.2b), `0013` lookup_categories + lookup_values (2.2b), `0014` email settings (2.2c), `0015` feedback (2.2d).
+
+This ladder has now slid twice, both times because a hotfix consumed a number a plan had spoken for — `0006`/`0007` in 2.0, then `0008`/`0009` in 2.1d. **Take the next free number from `ls supabase/migrations/`, not from this line.**
 
 Then, unchanged in content but renumbered from here: scheduling + EXCLUDE constraints + action_tokens → clinical → recall/waitlist → notifications/announcements → billing → RLS top-ups → functions (get_available_slots, book_appointment, cancel, reschedule, accept_or_refer, recalc_recalls, enqueue_due_work) → cron → seeds.
 

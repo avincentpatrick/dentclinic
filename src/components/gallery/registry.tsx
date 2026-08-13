@@ -1,6 +1,10 @@
 import { CalendarClock, Inbox } from "lucide-react";
+import { AdminSectionGrid } from "@/components/admin/AdminSectionGrid";
+import { ADMIN_SECTIONS } from "@/lib/admin/sections";
+import { BrandingFormSpecimen } from "@/components/gallery/specimens/BrandingFormSpecimen";
 import { ErrorEmptyStateSpecimen } from "@/components/gallery/specimens/ErrorEmptyStateSpecimen";
 import { ToastSpecimen } from "@/components/gallery/specimens/ToastSpecimen";
+import type { GalleryGroup } from "@/components/gallery/groups";
 import { DuplicateWarning } from "@/components/patients/DuplicateWarning";
 import type { Confirmable } from "@/lib/forms/action-state";
 import { SubmitButton } from "@/components/shared/SubmitButton";
@@ -89,7 +93,14 @@ export type Specimen = { name: string; note?: string; render: () => React.ReactN
 export type GalleryEntry = {
   id: string;
   name: string;
-  group: "shell" | "shared" | "search" | "feedback";
+  /**
+   * Imported, not re-declared. This used to duplicate the union inline, which
+   * meant adding a group to groups.ts typechecked cleanly while no entry here
+   * could actually use it — and groups.ts is what the a11y spec iterates, so
+   * the two drifting silently is exactly the failure that file exists to
+   * prevent.
+   */
+  group: GalleryGroup;
   doc: string;
   description: string;
   specimens: Specimen[];
@@ -594,5 +605,48 @@ export const registry: GalleryEntry[] = [
     doc: "docs/design-system/04-components/appearance-panel.md",
     description: "Theme and text size. The live control is embedded at the top of this page.",
     specimens: [],
+  },
+
+  // ---------------------------------------------------------------------
+  // Layouts — whole-page compositions. See GROUP_LABELS.layouts for what
+  // this group does and does not prove.
+  // ---------------------------------------------------------------------
+  {
+    id: "admin-hub",
+    name: "AdminSectionGrid",
+    group: "layouts",
+    doc: "docs/design-system/04-components/admin-hub.md",
+    description:
+      "The /admin landing grid. Renders the REAL section list, not a fixture — so a section added without an href is proven here to be non-clickable rather than shipping as a 404.",
+    specimens: [
+      {
+        name: "Clinic settings hub",
+        note: "Branding is live; the rest state when they arrive, in words rather than by being greyed out.",
+        render: () => <AdminSectionGrid sections={ADMIN_SECTIONS} />,
+      },
+    ],
+  },
+  {
+    id: "branding-form",
+    name: "BrandingForm",
+    group: "layouts",
+    doc: "docs/design-system/04-components/branding-form.md",
+    description:
+      "The /admin/branding editor. The logo picker sits outside the <form> on purpose — a file input inside a Server Action form is serialized into the action payload and hits the 1 MB body limit.",
+    specimens: [
+      {
+        name: "Idle",
+        note: "The picker renders disabled: a specimen may not import a server action, so there is no minter.",
+        render: () => <BrandingFormSpecimen />,
+      },
+      {
+        name: "Field errors",
+        render: () => <BrandingFormSpecimen state="invalid" />,
+      },
+      {
+        name: "Saved",
+        render: () => <BrandingFormSpecimen state="success" />,
+      },
+    ],
   },
 ];

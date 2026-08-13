@@ -45,7 +45,12 @@ export async function AppShell({ role, children }: { role: AppRole; children: Re
         }
         className="min-h-dvh"
       >
-        <AppSidebar role={role} defaultCollapsed={collapsed} brandName={branding.clinicName}>
+        <AppSidebar
+          role={role}
+          defaultCollapsed={collapsed}
+          brandName={branding.clinicName}
+          brandLogoUrl={branding.logoUrl}
+        >
           <Suspense fallback={<UserChipSkeleton collapsed={collapsed} />}>
             <UserChip collapsed={collapsed} />
           </Suspense>

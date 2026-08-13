@@ -46,11 +46,25 @@ run before you commit.
 Authenticating Playwright against live Supabase would need real credentials and hand-forged
 chunked `sb-*-auth-token` cookies — fragile and slow.
 
-Since Phase 2 the gallery also carries a `layouts` group: whole-page compositions built from
-the same hard-coded fixtures, which is how admin and staff screens get axe coverage without
-a second bypass route. A real auth fixture (service-role `generateLink` → `storageState`,
-skipped unless its env var is set so `npm run verify` stays offline) is the tracked next
-step, not a replacement for either.
+**Since Phase 2.2a** the gallery carries a `layouts` group: whole-page compositions built from
+the same hard-coded fixtures, which is how admin screens get axe coverage without a second
+bypass route.
+
+> This paragraph previously claimed the group had existed "since Phase 2". It had not — no
+> such group existed until 2.2a, and no authenticated route was axe-tested at all. It was
+> found and corrected while planning 2.2a. Recorded rather than quietly rewritten, in the
+> same register as the six docs corrected in the 2026-08-13 session for overstating the
+> no-JS guarantee: a doc that describes coverage the suite does not have is worse than one
+> that admits the gap, because it stops anyone looking.
+
+What the group **proves**: heading order, contrast and layout of the assembled page, across
+both themes and all four font steps, on every `npm run test:a11y`.
+
+What it **does not prove**: the real data path; row menus, whose props are server actions
+(which is why the `SoftDeleteMenu` entry has no specimens); and the authenticated shell
+around the page. A real auth fixture (service-role `generateLink` → `storageState`, skipped
+unless its env var is set so `npm run verify` stays offline) is the tracked next step, not a
+replacement for either.
 
 Instead, `A11Y_AUDIT=1` bypasses the gate. Four independent reasons it is safe:
 

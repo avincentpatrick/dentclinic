@@ -58,3 +58,17 @@ export async function getStaffActor(): Promise<Actor | null> {
   const actor = await getActor();
   return actor && isStaffSide(actor.role) ? actor : null;
 }
+
+/**
+ * The caller, but only if they are superadmin. Same null-collapsing contract as
+ * `getStaffActor`: signed out, patient and front desk are all `null`.
+ *
+ * The definer RPCs re-check `jwt_role()` themselves — `update_clinic_branding`
+ * raises `forbidden` before touching a row, and that is the actual boundary.
+ * This layer exists to turn that raise into a sentence, so a misrouted click
+ * reads as "you don't have permission" instead of a database error code.
+ */
+export async function getSuperadminActor(): Promise<Actor | null> {
+  const actor = await getActor();
+  return actor && actor.role === "superadmin" ? actor : null;
+}

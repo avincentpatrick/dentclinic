@@ -189,3 +189,41 @@ export function intInRange(min: number, max: number, label: string): Validator<n
     return ok(n);
   };
 }
+
+/**
+ * A URL that will be rendered in an `<img src>`.
+ *
+ * `https:` ONLY, deliberately not the obvious `https?:`. The app is served over
+ * https, so an http image is blocked as mixed content — it would be a value
+ * that stores cleanly, passes every check, and then silently never renders.
+ * The form is the only place the user can be told why, so it is rejected here.
+ *
+ * Parsed with the URL constructor rather than a regex: a regex permissive
+ * enough to accept real URLs also accepts shapes browsers normalise
+ * differently, and `javascript:alert(1)` is exactly the kind of thing that
+ * slips through a loose one. `new URL` throws on garbage, so the call is
+ * wrapped — no validator in this module may ever throw.
+ */
+export function httpsUrl(opts: {
+  label: string;
+  max?: number;
+  required?: boolean;
+}): Validator<string | null> {
+  const max = opts.max ?? 500;
+  return (raw) => {
+    const v = (raw ?? "").trim();
+    if (!v) return opts.required ? err(`${opts.label} is required.`) : ok(null);
+    if (v.length > max) return err(`${opts.label} must be ${max} characters or fewer.`);
+
+    let parsed: URL;
+    try {
+      parsed = new URL(v);
+    } catch {
+      return err("Enter a full web address, starting with https://");
+    }
+    if (parsed.protocol !== "https:") {
+      return err("The address must start with https:// — an http image will not load.");
+    }
+    return ok(parsed.toString());
+  };
+}

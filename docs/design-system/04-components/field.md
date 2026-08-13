@@ -26,6 +26,7 @@ and server-returned `fieldErrors` line up without any per-call-site wiring.
 | `"textarea"` | `<Textarea>` | `rows` default 3 |
 | `"select"` | **native `<select>`** | `options: {value,label}[]`, optional `placeholder` as a disabled empty option |
 | `"checkbox"` | **native `<input type=checkbox>`** | label sits right of the box; the whole row is the target |
+| `"file"` | **native `<input type=file>`** | `accept`, `onChange`. Phase 2.2a. **Cannot echo** — see below |
 
 Native `<select>` and `<input type="checkbox">` are deliberate, not a shortcut. They get the
 platform picker on mobile, they need no roving-focus implementation, and they keep the field
@@ -38,13 +39,30 @@ JavaScript regardless of which controls they contain — see
 [05-patterns/forms.md](../05-patterns/forms.md). It remains a reason in `AppearancePanel`,
 whose action is a plain void-returning one.)
 
+### The `file` variant is the one that cannot echo
+
+Browsers forbid setting a file input's `value`, so this variant has **no `defaultValue`** and
+cannot be restored after a rejected submit. That is a real, single exception to
+[forms.md](../05-patterns/forms.md)'s "always echo values back" rule, and it is why the prop
+union excludes `defaultValue` on this arm rather than accepting one that would silently do
+nothing.
+
+The fix is structural rather than per-call-site: **upload before the form is submitted, and
+carry the result as text.** [BrandingForm](branding-form.md) puts the picker *outside* the
+`<form>`, uploads straight to storage, and passes the resulting URL along in a hidden input —
+so a rejected save never costs the upload. That design is also what keeps the image bytes out
+of the Server Action payload and under Next's 1 MB `serverActions.bodySizeLimit`. Two
+independent reasons, one shape; copy it rather than putting a file input in an action form.
+
 ## Props
 
 | Prop | Type | Default | Notes |
 |---|---|---|---|
 | `name` | `string` | — | required; also the `id` and the `fieldErrors` key |
 | `label` | `string` | — | required |
-| `as` | `"input" \| "textarea" \| "select" \| "checkbox"` | `"input"` | discriminates the rest of the props |
+| `as` | `"input" \| "textarea" \| "select" \| "checkbox" \| "file"` | `"input"` | discriminates the rest of the props |
+| `accept` | `string` | — | `as="file"` only; a MIME allow-list, mirrored server-side |
+| `onChange` | `ChangeEventHandler` | — | `as="file"` only, client-only — a Server Component cannot pass it |
 | `hint` | `string` | — | rendered before the error, both referenced by `aria-describedby` |
 | `error` | `string` | — | from `errorsOf(state)[name]` |
 | `required` | `boolean` | `false` | renders "(required)" and `aria-required`; **advisory only** — see below |

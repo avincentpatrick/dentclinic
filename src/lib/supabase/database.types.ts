@@ -295,6 +295,15 @@ export type Database = {
         Args: { p_entity: string; p_entity_id?: string; p_patient_id?: string }
         Returns: undefined
       }
+      update_clinic_branding: {
+        Args: {
+          p_brand_hue: number
+          p_clinic_name: string
+          p_logo_url?: string
+          p_tagline?: string
+        }
+        Returns: undefined
+      }
       update_own_patient: {
         Args: {
           p_address?: string

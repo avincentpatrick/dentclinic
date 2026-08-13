@@ -28,11 +28,13 @@ export function AppSidebar({
   role,
   defaultCollapsed,
   brandName,
+  brandLogoUrl,
   children,
 }: {
   role: AppRole;
   defaultCollapsed: boolean;
   brandName: string;
+  brandLogoUrl?: string | null;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -60,6 +62,22 @@ export function AppSidebar({
         )}
       >
         <div className={cn("flex h-14 items-center gap-2 px-3", collapsed && "justify-center px-0")}>
+          {/* The logo sits BESIDE the name, never instead of it. A wordmark is
+              not a substitute for the clinic's name in the accessibility tree,
+              and a broken image would otherwise leave the sidebar unlabelled.
+              It shows when collapsed too, where it is the only brand cue that
+              fits the 56px rail. */}
+          {brandLogoUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={brandLogoUrl}
+              alt=""
+              width={24}
+              height={24}
+              referrerPolicy="no-referrer"
+              className="size-6 shrink-0 object-contain"
+            />
+          )}
           {!collapsed && (
             <span className="truncate font-semibold text-sidebar-foreground">{brandName}</span>
           )}
