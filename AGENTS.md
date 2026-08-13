@@ -22,6 +22,7 @@ Full blueprint: `docs/PLAN.md` (canonical copy of the approved plan). Progress: 
 - All times UTC in DB; clinic TZ (`Asia/Manila`) from settings; durations = counts of 10-minute units.
 - Everything sized in rem; tokens in `globals.css` reference `--brand-hue`; never color-only status (chip + label + icon).
 - Never cache PHI in the service worker; recents/search state server-side, never localStorage.
+- **No working credential in a tracked file, ever** — not in docs, not in tests, not "temporarily". Repo visibility is one click and git history is permanent; the repo went public on 2026-08-13 with a superadmin test password in `01-auth-roles.md`, and deleting the line would have fixed nothing. Secrets live in `.env.local`, Cloudflare secrets, or Supabase secrets, and are referenced by name.
 - Canonical table names live in `docs/PLAN.md` § Data model — do not invent variants.
 
 ## Documentation rules

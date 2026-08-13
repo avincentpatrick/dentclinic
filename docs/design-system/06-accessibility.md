@@ -30,10 +30,15 @@ npm run check              # lint + typecheck + contrast + docs sync
 npm run verify             # everything, exactly as CI runs it
 ```
 
-CI runs all of these on every push and PR (the account's billing block was cleared before
-Phase 2). Every gate is nonetheless a local npm script, and `npm run verify` reproduces CI
-offline — keep it that way: a gate that only exists in a workflow file cannot be run before
-you commit, and the offline mirror is what carried the project through the billing outage.
+**GitHub Actions is still blocked by the account's billing state** — re-confirmed 2026-08-13,
+when a push produced a run that failed in two seconds with zero steps and the annotation
+*"The job was not started because recent account payments have failed or your spending limit
+needs to be increased."* CI will not run these until that is resolved.
+
+That is precisely why every gate is a local npm script: `npm run verify` reproduces CI
+offline, and it is the only thing standing between a regression and the deployed URL. Keep it
+that way even after billing is fixed — a gate that only exists in a workflow file cannot be
+run before you commit.
 
 ## The audit bypass — and why it cannot reach production
 

@@ -39,7 +39,23 @@ Email-only passwordless auth (OTP/magic link) for patients; invited accounts for
 | Read audit_log | — | — | — | ✔ (RPC, Phase 8) |
 
 ## Test users (Phase 0 seed — remove before real launch)
-`test-{patient,doctor,staff,superadmin,deactivated}@example.com` / password `TestDent2026-Phase0` (password sign-in exists only for these; real patients are OTP-only).
+`test-{patient,doctor,staff,superadmin,deactivated}@example.com`. Password sign-in exists
+**only** for these; real patients are OTP-only.
+
+The password lives in git-ignored `.env.local` as `TEST_USER_PASSWORD` and is **never**
+written down here again.
+
+> **Rotated 2026-08-13.** The original password was documented in this file in plain text,
+> which was defensible while the repo was private and stopped being defensible the moment it
+> was made public — it granted **superadmin** sign-in on the live project, and git history
+> keeps it forever, so deleting the line would have fixed nothing. Rotation was the only
+> remedy. The general rule this establishes: **a working credential never goes in a tracked
+> file**, regardless of the repo's current visibility, because visibility is one click and
+> history is permanent.
+
+Remaining exposure to close before real patient data exists: these accounts should be deleted
+outright at launch (they are the only password-authenticated users in the system), and
+superadmin MFA — see Open Questions.
 
 ## Open Questions
 - MFA for superadmin (Supabase supports TOTP) — revisit Phase 9.
