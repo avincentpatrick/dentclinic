@@ -22,6 +22,30 @@ Keep the clinic's app deployable, its data recoverable, and its paperwork compli
 - **Connection:** session pooler `aws-0-ap-southeast-1.pooler.supabase.com:5432` (IPv4; the direct db host is IPv6-only and unreachable from GitHub runners).
 - **Passphrase:** in `.env.local` and GitHub secrets. **A copy must live outside this machine (password manager) — without it backups are unreadable.**
 
+### ⚠ The repo is public, and that changes the threat model
+
+Since 2026-08-13 this repository is public (done to get free Actions minutes). **Workflow
+artifacts on a public repo can be downloaded by anyone**, so every nightly backup is a file an
+attacker can fetch and attack offline, at leisure, with no rate limit and no audit trail.
+
+Mitigations in place: AES-256-CBC with **PBKDF2 at 600,000 iterations** (the OWASP floor; the
+previous default of 10,000 was chosen when the repo was private and is GPU-cheap), 30-day
+artifact retention, and no plaintext ever leaving the runner.
+
+That is adequate **only if `BACKUP_PASSPHRASE` is long and randomly generated.** A
+human-memorable passphrase is not safe under this threat model — iterations buy time against a
+strong secret, they do not rescue a weak one.
+
+**Decide before real patient data exists.** Options, roughly in order of preference:
+1. Make the repo private again and fix the Actions billing — restores the original model.
+2. Keep it public and push backups to a private destination (a private repo's artifacts, R2,
+   or a storage bucket) instead of leaving them as artifacts of a public run.
+3. Keep as-is with a verified high-entropy passphrase, and accept that the ciphertext is
+   public.
+
+Today the database holds **0 patient rows**, so nothing sensitive has been exposed. The window
+for choosing closes the moment the clinic registers its first real patient.
+
 ## Restore drill log
 
 | Date | What was done | Result |
@@ -30,7 +54,9 @@ Keep the clinic's app deployable, its data recoverable, and its paperwork compli
 
 ### Restore procedure (disaster runbook)
 1. Get the latest `backup-*.tar.gz.enc` artifact from GitHub Actions.
-2. Decrypt: `openssl enc -d -aes-256-cbc -pbkdf2 -in backup-X.tar.gz.enc -out dump.tar.gz -pass env:BACKUP_PASSPHRASE` then untar.
+2. Decrypt: `openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 -in backup-X.tar.gz.enc -out dump.tar.gz -pass env:BACKUP_PASSPHRASE` then untar.
+   **The `-iter` must match what encrypted it**, or decryption fails with "bad magic number".
+   Artifacts produced before 2026-08-13 used the default 10,000 — omit `-iter` for those.
 3. Target: fresh Supabase project (in disaster, the dead production project's slot is free; delete it after export).
 4. Apply in order via psql against the session pooler URL: `roles.sql` (errors about reserved `supabase_*` roles are expected — ignore), `schema.sql`, `data.sql`.
 5. Verify: profile count, latest audit_log rows, a booking round-trip.

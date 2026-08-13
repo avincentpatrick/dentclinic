@@ -23,10 +23,20 @@ jobs:
           npx --yes supabase@latest db dump --db-url "$SUPABASE_DB_URL" -f data.sql --data-only --use-copy
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      # -iter 600000 is not decoration. This repo is PUBLIC, and workflow
+      # artifacts on a public repo can be downloaded by anyone — so this
+      # ciphertext is a file an attacker can take offline and grind at leisure.
+      # `-pbkdf2` alone defaults to 10,000 iterations, which is 1990s-cheap on a
+      # GPU. 600k is the OWASP floor for PBKDF2-HMAC-SHA256 and costs the runner
+      # under a second, once, per night.
+      #
+      # This does NOT make a weak passphrase safe. It buys time against a strong
+      # one. See docs/modules/17-ops.md § Backups for the standing decision
+      # about artifact visibility.
       - name: Encrypt
         run: |
           tar czf dump.tar.gz roles.sql schema.sql data.sql
-          openssl enc -aes-256-cbc -pbkdf2 -salt -in dump.tar.gz -out "backup-$(date +%Y%m%d).tar.gz.enc" -pass env:BACKUP_PASSPHRASE
+          openssl enc -aes-256-cbc -pbkdf2 -iter 600000 -salt -in dump.tar.gz -out "backup-$(date +%Y%m%d).tar.gz.enc" -pass env:BACKUP_PASSPHRASE
           rm -f roles.sql schema.sql data.sql dump.tar.gz
         env:
           BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
