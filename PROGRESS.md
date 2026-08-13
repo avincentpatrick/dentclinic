@@ -4,13 +4,14 @@ Legend: ⬜ not started · 🔵 in progress · ✅ done · ⛔ blocked · 🔁 r
 
 ## Snapshot
 
-- **Current phase:** 2 — Patients, lookups, settings, email (2.0 ✅ · 2.1a–d ✅ · 2.2a ✅ · 2.2b ✅ → next: 2.2c email + DNS panel)
+- **Current phase:** 2 — Patients, lookups, settings, email (2.0 ✅ · 2.1a–d ✅ · 2.2a ✅ · 2.2b ✅ · **2.2c ⛔ deferred** → next: 2.2d feedback)
 - **Deployed URL:** https://dentclinic.dentclinic-appointment-and-recording-system.workers.dev
 - **Supabase:** dentclinic `csslnpmjprfuzofomtda` (ap-southeast-1, dedicated account) — migrations **0001–0014** applied
 - **Repo:** github.com/avincentpatrick/dentclinic — **PUBLIC since 2026-08-13** (to unblock Actions; see 17-ops.md for what that changed)
 - **CI:** green end to end. Worker **1.28 MB** gzip (43% of 3 MB). 32 a11y tests, 29 routes.
 - **Brand hue:** 195 (teal-cyan), live from `clinic_branding` — now editable **from `/admin/branding`**, proven on the deployed URL
-- **Blocked on user:** Brevo account (gates 2.2c email settings + test send) · **Cloudflare API token needs `D1 Edit`** (gates the branding tag cache — see 17-ops.md; the app is correct without it, just uncached)
+- **Deferred:** **2.2c email** — no free sending provider reachable and no domain (decisions 23–24). Phase 5 reminders depend on it; nothing before then does.
+- **Blocked on user:** **Cloudflare API token needs `D1 Edit`** (gates the branding tag cache only — see 17-ops.md; the app is correct without it, just uncached)
 - **Last session:** 2026-08-13
 
 ## Phase 0 — Foundation & ops spine
@@ -100,7 +101,8 @@ Legend: ⬜ not started · 🔵 in progress · ✅ done · ⛔ blocked · 🔁 r
   - [x] **`/profile` wired to `update_own_patient`** — closing decision 10, the last RPC with no call site — plus a Settings sidebar entry for staff/doctor/superadmin
   - [x] Three more `layouts` gallery entries (lookups list, lookups form, profile); 32 a11y tests still green
   - [x] **Live acceptance 49/49** on the deployed URL, including the `params` trap, the 10-minute rejection, archive/restore, built-in rows, currency formatting, and an injected `email` field failing to change `patients.email`
-- [ ] 2.2c email + DNS panel · 2.2d feedback · 2.2e close
+- [ ] ⛔ **2.2c email + DNS panel — DEFERRED** (see decision 24). Not started; no partial work to unpick.
+- [ ] 2.2d feedback · 2.2e close
 
 ### Decisions this phase (do not re-litigate)
 
@@ -127,7 +129,14 @@ Legend: ⬜ not started · 🔵 in progress · ✅ done · ⛔ blocked · 🔁 r
 20. **`/profile`'s guard is `getActor()`, not `requirePatient()`.** The route is granted to ALL_ROLES and the RPC keys on `auth.uid()`; a patient-only guard would break it for the three roles the route table deliberately grants it to.
 21. **`/profile` IS read-audited, `/admin/lookups` is not.** The deciding case for the former is staff-side: a superadmin whose login is linked to a patients row reads a real chart there. Configuration is not PHI.
 22. **A render prop cannot cross the Server→Client boundary.** Only Server Actions may be passed as function props. `LookupForm`'s `fields` render prop 500'd every create and edit route until thin client wrappers were added, and **no gate caught it** — typecheck, lint and axe all passed, because no authenticated route is exercised by the suite. That is the strongest argument yet for the auth fixture tracked in `06-accessibility.md`.
-23. **No custom domain during development — the project stays at $0, and 2.2c's `mail-tester ≥9/10` is therefore knowingly unmet.** `workers.dev` cannot hold DNS records, so SPF/DKIM/DMARC cannot be configured and DMARC alignment cannot pass. Every other part of 2.2c ships and is testable: the settings screen, the RPC, the Brevo send path, a real test send, and the DNS panel reporting "not configured". A free subdomain is **not** an acceptable substitute — those providers either allow a single TXT record (enough for an ACME challenge, not for three), require slow manual approval and forbid commercial use, or are abandoned free TLDs that mail providers filter on sight, which would make deliverability *worse* than having no domain at all. Expect a `@gmail.com` from-address sent via Brevo to fail DMARC by design — Brevo is not authorised to send as you. **Trigger to revisit: before any real patient receives an email.** ~$10/yr, and it is the only cost in the entire stack.
+23. **No custom domain during development — the project stays at $0.** `workers.dev` cannot hold DNS records, so SPF/DKIM/DMARC cannot be configured and DMARC alignment cannot pass. A free subdomain is **not** an acceptable substitute — those providers either allow a single TXT record (enough for an ACME challenge, not for three), require slow manual approval and forbid commercial use, or are abandoned free TLDs that mail providers filter on sight, which would make deliverability *worse* than having no domain at all. **Trigger to revisit: before any real patient receives an email.** ~$10/yr, and it is the only cost in the entire stack — Workers, KV, D1, Supabase and Actions are all free tier.
+24. **2.2c (email) is DEFERRED WHOLE, and the phase proceeds without it.** Brevo's signup would not yield its free plan in practice, and decision 23 rules out the domain that every alternative's free tier wants before it will send to arbitrary recipients. Rather than build a send path that cannot be demonstrated end to end, the increment is skipped entirely — **nothing was started, so there is no half-built surface to unpick.** This supersedes the earlier expectation that 2.2c would ship with only `mail-tester ≥9/10` outstanding.
+
+    What this does **not** block, which is why deferring is cheap: **2.2d feedback is email-free by design.** `16-feedback.md` rule 4 is explicit — *"Filing never sends email, and must never be able to"* — because filing a bug report must not fail at exactly the moment email is broken. The superadmin gets a `status='new'` count badge instead, and a pull notification cannot fail.
+
+    What it **does** block: Phase 5's reminder pipeline (pg_cron → pg_net → `/api/jobs/send` → Brevo), and Supabase Auth's own mail stays on the built-in mailer's ~2/hr limit until a provider exists. **Trigger to revisit: before Phase 5, or as soon as a domain exists** — the two unblock together, since a verified domain is what most providers' free tiers actually want.
+
+25. **`check:routes` now also asserts every `ADMIN_SECTIONS` href resolves to a real route.** 2.2b shipped `/admin/lookups` working but **unlinked** — the hub still described it as "Arrives in Phase 2.2b" with no href, so the only way in was typing the URL. `AdminSectionGrid` makes an *unbuilt* section unrepresentable as a link, but nothing checked the other direction. **The acceptance assertion that should have caught it was `(await page.goto(…)) && true` — always truthy, incapable of failing.** A check that cannot fail is worse than no check, because it reads as coverage in the results. The new gate was negative-tested (pointed at a bogus route, confirmed exit 1) before being trusted, and the hub link is now verified by clicking it on the deployed site rather than by asserting a truthy value.
 
 ## Session log (newest first)
 

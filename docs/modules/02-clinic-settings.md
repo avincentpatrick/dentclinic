@@ -268,7 +268,8 @@ behavioural gain, so the name stays and this note is the record.
   means a category seeded in a future migration gets an admin screen with **no route work**.
   There is deliberately no separate detail page — a lookup row has six fields, no history and no
   read audit, so it would be a click for nothing.
-- Phase 2.2c: `/admin/email`.
+- `/admin/email` — **deferred with 2.2c** (PROGRESS decision 24). The Admin hub already renders
+  its card as non-clickable, so nothing links to a route that does not exist.
 
 **No ROUTE_RULES change was needed for either page** — `{ prefix: "/admin", roles: ["superadmin"] }`
 already covers everything beneath it, and `npm run check:routes` proves that rather than

@@ -46,14 +46,17 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
     description:
       "Appointment types with their durations and buffers, treatment rooms, cancellation reasons, payment methods and fees.",
     icon: ListTree,
-    availability: "Arrives in Phase 2.2b",
+    href: "/admin/lookups",
+    availability: "Available",
   },
   {
     id: "email",
     title: "Email",
     description: "Sending provider, the clinic's from-address, and SPF/DKIM/DMARC checks.",
     icon: Mail,
-    availability: "Arrives in Phase 2.2c — waiting on the Brevo account",
+    // Deferred whole, not merely pending: no free sending provider is reachable
+    // without a domain. PROGRESS decision 24 carries the trigger to revisit.
+    availability: "Deferred — needs a sending provider and a domain",
   },
   {
     id: "feedback",

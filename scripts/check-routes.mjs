@@ -91,7 +91,33 @@ if (missing.length) {
   process.exit(1);
 }
 
+// ---------------------------------------------------------------------------
+// Admin hub links must point at routes that exist.
+//
+// /admin was linked from nav.ts for two whole phases before the page existed,
+// so every superadmin who clicked "Clinic settings" got a 404. AdminSectionGrid
+// makes an unbuilt section unrepresentable as a link, but nothing checked the
+// other direction: that a section WITH an href points somewhere real.
+//
+// Parsed from source by regex, like ROUTE_RULES above, so this file needs no TS
+// loader. Static hrefs only — a dynamic one would be a different check.
+// ---------------------------------------------------------------------------
+const sectionsSource = readFileSync("src/lib/admin/sections.ts", "utf8");
+const sectionHrefs = [...sectionsSource.matchAll(/^\s*href:\s*"([^"]+)"/gm)].map((m) => m[1]);
+
+const danglingLinks = sectionHrefs.filter((href) => !routes.includes(href));
+
+if (danglingLinks.length) {
+  console.error(`\n  Admin sections linking to routes that do not exist:\n`);
+  danglingLinks.forEach((h) => console.error(`    ${h}`));
+  console.error(
+    `\n  A section with an href renders as a link, so this ships a 404 to superadmins.\n` +
+      `  Either build the page or drop the href — an absent href renders a plain card.\n`,
+  );
+  process.exit(1);
+}
+
 console.log(
   `\n  routes: ${pages.length} pages + ${handlers.length} route handlers, ` +
-    `all covered by ROUTE_RULES.\n`,
+    `all covered by ROUTE_RULES; ${sectionHrefs.length} admin links resolve.\n`,
 );
